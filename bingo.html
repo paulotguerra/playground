@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Pro</title>
+    <title>Bingo Pro (beta)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -89,7 +89,7 @@
                 <div>
                     <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">
                         <span class="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
-                            Bingo Pro
+                            Bingo Pro (beta)
                         </span>
                     </h1>
                     <p class="mt-1 text-base md:text-lg text-gray-500">O seu gestor de cartelas de bingo offline.</p>
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillText('B', size / 2, size / 2);
             return canvas.toDataURL('image/png');
         }
-        const manifest = { "name": "Bingo Pro", "short_name": "BingoPro", "start_url": ".", "display": "standalone", "background_color": "#f3f4f6", "theme_color": "#1E40AF", "description": "O seu gestor de cartelas de bingo offline.", "icons": [ { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" }, { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" } ] };
+        const manifest = { "name": "Bingo Pro (beta)", "short_name": "BingoPro", "start_url": ".", "display": "standalone", "background_color": "#f3f4f6", "theme_color": "#1E40AF", "description": "O seu gestor de cartelas de bingo offline.", "icons": [ { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" }, { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" } ] };
         const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
         document.querySelector('link[rel="manifest"]').href = URL.createObjectURL(manifestBlob);
         document.querySelector('link[rel="apple-touch-icon"]').href = generateIcon(192);
