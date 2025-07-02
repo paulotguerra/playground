@@ -67,6 +67,11 @@
             align-items: center;
             gap: 0.5rem;
         }
+        .pattern-cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -113,6 +118,11 @@
                     <div id="drawn-numbers-list" class="flex flex-wrap gap-2 p-2 bg-gray-100 rounded-md min-h-[60px]">
                         <!-- Números sorteados serão injetados aqui -->
                     </div>
+                    <div id="announcer-container" class="mt-3 text-right hidden">
+                        <button id="announcer-btn" class="text-sm bg-amber-500 text-white px-3 py-1 rounded-md hover:bg-amber-600 btn-icon">
+                            ✨ Anunciar Número
+                        </button>
+                    </div>
                 </section>
 
                 <!-- Secção de Controles -->
@@ -150,6 +160,14 @@
                 </main>
             </div>
         </div>
+        
+        <!-- Botão para Apagar Todas as Cartelas -->
+        <div id="delete-all-container" class="mt-8 text-center hidden">
+            <button id="delete-all-cards-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors">
+                Apagar Todas as Cartelas
+            </button>
+        </div>
+
     </div>
     
     <!-- Modais -->
@@ -174,7 +192,7 @@
                     <input type="text" id="card-name-input" placeholder="Ex: Cartela da Sorte" class="w-full p-2 border rounded-md" required>
                 </div>
                 <div class="mb-4">
-                    <div class="p-2 border-x border-y rounded-b-md rounded-t-md">
+                    <div class="p-2 border rounded">
                     <div class="bingo-grid text-center font-bold text-white mb-1">
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">B</span><span class="text-xs font-light tracking-tighter">1-15</span></div>
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">I</span><span class="text-xs font-light tracking-tighter">16-30</span></div>
@@ -203,14 +221,15 @@
                     <input type="text" id="edit-card-name-input" class="w-full p-2 border rounded-md" required>
                 </div>
                 <div class="mb-4">
-                    <div class="p-2 border-x border-y rounded-b-md rounded-t-md">
+                    <div class="p-2 border rounded">
                     <div class="bingo-grid text-center font-bold text-white mb-1">
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">B</span><span class="text-xs font-light tracking-tighter">1-15</span></div>
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">I</span><span class="text-xs font-light tracking-tighter">16-30</span></div>
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">N</span><span class="text-xs font-light tracking-tighter">31-45</span></div>
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">G</span><span class="text-xs font-light tracking-tighter">46-60</span></div>
                         <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">O</span><span class="text-xs font-light tracking-tighter">61-75</span></div>
-                    </div><div id="edit-grid" class="bingo-grid"></div></div>
+                    </div>
+                    <div id="edit-grid" class="bingo-grid"></div></div>
                 </div>
                 <div id="edit-form-error" class="text-red-600 text-sm mb-3 hidden"></div>
                 <div class="flex justify-end gap-3">
@@ -243,12 +262,23 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4">Configurações de Vitória</h3>
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md my-8">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Configurações de Vitória</h3>
             <div class="space-y-3">
                 <div><input type="radio" id="win-standard" name="win-condition" value="standard" class="mr-2"><label for="win-standard">Padrão (Linha, Coluna ou Diagonal)</label></div>
                 <div><input type="radio" id="win-full" name="win-condition" value="full" class="mr-2"><label for="win-full">Cartela Cheia (Todos os números)</label></div>
+                <div><input type="radio" id="win-custom" name="win-condition" value="custom" class="mr-2"><label for="win-custom">Padrão Personalizado ✨</label></div>
+            </div>
+            <div id="custom-pattern-section" class="mt-4 pt-4 border-t hidden">
+                <label for="custom-pattern-input" class="block text-sm font-medium text-gray-700 mb-1">Descreva o padrão de vitória:</label>
+                <textarea id="custom-pattern-input" rows="2" class="w-full p-2 border rounded-md" placeholder="Ex: as quatro pontas e um X no meio"></textarea>
+                <button id="generate-pattern-btn" class="w-full mt-2 bg-teal-600 text-white p-2 rounded-md hover:bg-teal-700 font-semibold">Gerar Padrão</button>
+                <div id="pattern-visualizer-container" class="mt-3 hidden">
+                    <p class="text-sm font-medium text-gray-700 mb-1">Visualização do Padrão:</p>
+                    <div id="pattern-visualizer" class="grid grid-cols-5 gap-1 mx-auto w-max"></div>
+                </div>
+                 <div id="pattern-loading" class="text-center mt-2 hidden">A gerar...</div>
             </div>
             <div class="flex justify-end mt-6"><button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Salvar</button></div>
         </div>
@@ -278,6 +308,14 @@
             </div>
         </div>
     </div>
+    
+    <div id="announcement-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <h3 id="announcement-title" class="text-2xl font-bold mb-2 text-blue-800"></h3>
+            <p id="announcement-text" class="text-gray-700 text-lg mb-6"></p>
+            <button onclick="closeModal('announcement-modal')" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">OK</button>
+        </div>
+    </div>
 
 <script>
 if ('serviceWorker' in navigator) {
@@ -294,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const BINGO_COLS = { 0: { name: 'B', min: 1, max: 15 }, 1: { name: 'I', min: 16, max: 30 }, 2: { name: 'N', min: 31, max: 45 }, 3: { name: 'G', min: 46, max: 60 }, 4: { name: 'O', min: 61, max: 75 } };
     const ICONS = { sortAsc: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m-4 4l4 4" /></svg>`, clock: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`, trash: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`, pencil: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>`, };
     
-    // --- Elementos do DOM ---
     const ui = {
         drawnNumbersList: document.getElementById('drawn-numbers-list'),
         drawnCount: document.getElementById('drawn-count'),
@@ -304,13 +341,17 @@ document.addEventListener('DOMContentLoaded', () => {
         cardSortSelect: document.getElementById('card-sort-select'),
         manualGrid: document.getElementById('manual-grid'),
         editGrid: document.getElementById('edit-grid'),
-        ocrCardPreview: document.getElementById('ocr-card-preview')
+        ocrCardPreview: document.getElementById('ocr-card-preview'),
+        deleteAllContainer: document.getElementById('delete-all-container'),
+        announcerContainer: document.getElementById('announcer-container'),
+        customPatternSection: document.getElementById('custom-pattern-section'),
+        patternVisualizerContainer: document.getElementById('pattern-visualizer-container'),
+        patternVisualizer: document.getElementById('pattern-visualizer'),
+        patternLoading: document.getElementById('pattern-loading'),
     };
 
-    // --- Estado da Aplicação ---
-    let state = { drawnNumbers: [], cards: [], settings: { sortOrder: 'recent', winCondition: 'standard', cardSortOrder: 'mostMarked' } };
+    let state = { drawnNumbers: [], cards: [], settings: { sortOrder: 'recent', winCondition: 'standard', cardSortOrder: 'mostMarked', customWinPattern: null } };
 
-    // --- Funções de Gestão de Estado ---
     function saveState() { localStorage.setItem('bingoProData', JSON.stringify(state)); }
     function loadState() {
         const savedState = JSON.parse(localStorage.getItem('bingoProData'));
@@ -320,7 +361,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Lógica de Renderização ---
+    function setupPWA() {
+        function generateIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1E40AF'; ctx.fillRect(0, 0, size, size);
+            ctx.fillStyle = 'white'; ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('B', size / 2, size / 2);
+            return canvas.toDataURL('image/png');
+        }
+        const manifest = { "name": "Bingo Pro", "short_name": "BingoPro", "start_url": ".", "display": "standalone", "background_color": "#f3f4f6", "theme_color": "#1E40AF", "description": "O seu gestor de cartelas de bingo offline.", "icons": [ { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" }, { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" } ] };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        document.querySelector('link[rel="manifest"]').href = URL.createObjectURL(manifestBlob);
+        document.querySelector('link[rel="apple-touch-icon"]').href = generateIcon(192);
+    }
+    
     function renderApp() {
         renderDrawnNumbers();
         renderCards();
@@ -340,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (numbersToRender.length === 0) {
             ui.drawnNumbersList.innerHTML = '<p class="text-gray-400 text-sm w-full text-center">Nenhum número sorteado ainda.</p>';
+            ui.announcerContainer.classList.add('hidden');
         } else {
             numbersToRender.forEach(num => {
                 const letter = Object.values(BINGO_COLS).find(c => num >= c.min && num <= c.max).name;
@@ -350,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ball.title = `Remover ${num}`;
                 ui.drawnNumbersList.appendChild(ball);
             });
+            ui.announcerContainer.classList.remove('hidden');
         }
     }
 
@@ -361,11 +420,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.noCardsMessage.style.display = 'block';
             ui.cardSortSelect.style.display = 'none';
             if (sortControlsLabel) sortControlsLabel.style.display = 'none';
+            ui.deleteAllContainer.classList.add('hidden');
             return;
         }
         ui.noCardsMessage.style.display = 'none';
         ui.cardSortSelect.style.display = 'inline-block';
         if (sortControlsLabel) sortControlsLabel.style.display = 'inline-block';
+        ui.deleteAllContainer.classList.remove('hidden');
         
         let cardsToRender = [...state.cards];
         if (state.settings.cardSortOrder === 'alphabetical') {
@@ -380,41 +441,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const isWinner = checkWin(card);
         const cardElement = document.createElement('div');
         cardElement.className = `bg-white rounded-lg shadow p-3 relative ${isWinner ? 'border-4 border-yellow-400' : ''}`;
-        
-        let cardHTML = `
-            <div class="flex justify-between items-start mb-2">
-                <h3 class="font-bold text-lg text-blue-800 break-all pr-2">${card.name}</h3>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button class="edit-card-btn text-blue-600 hover:text-blue-800" data-id="${card.id}" title="Editar Cartela">${ICONS.pencil}</button>
-                    <button class="delete-card-btn text-red-500 hover:text-red-700" data-id="${card.id}" title="Excluir Cartela">${ICONS.trash}</button>
-                </div>
-            </div>
-            <div class="p-2 border-x border-y rounded-b-md rounded-t-md">
-            <div class="bingo-grid text-center font-bold text-white mb-1">
-                ${Object.values(BINGO_COLS).map(c => `<div class="bg-blue-700 p-1 rounded-t-md">${c.name}</div>`).join('')}
-            </div>
-            <div class="bingo-grid">
-        `;
-        
+        let cardHTML = `<div class="flex justify-between items-start mb-2"><h3 class="font-bold text-lg text-blue-800 break-all pr-2">${card.name}</h3><div class="flex items-center gap-2 flex-shrink-0"><button class="edit-card-btn text-blue-600 hover:text-blue-800" data-id="${card.id}" title="Editar Cartela">${ICONS.pencil}</button><button class="delete-card-btn text-red-500 hover:text-red-700" data-id="${card.id}" title="Excluir Cartela">${ICONS.trash}</button></div></div><div class="p-2 border rounded"><div class="bingo-grid text-center font-bold text-white mb-1">${Object.values(BINGO_COLS).map(c => `<div class="bg-blue-700 p-1 rounded-t-md">${c.name}</div>`).join('')}</div><div class="bingo-grid">`;
         card.numbers.flat().forEach(number => {
             const isDrawn = state.drawnNumbers.includes(number) || number === '⭐️';
             const cellClasses = number === '⭐️' ? 'bg-yellow-400 text-gray-800' : isDrawn ? 'bg-blue-600 text-white' : 'bg-gray-200';
             cardHTML += `<div class="bingo-cell ${cellClasses}">${number}</div>`;
         });
-        
         cardHTML += `</div></div>`;
         if (isWinner) cardHTML += `<div class="bingo-winner-overlay">BINGO!</div>`;
-        
         cardElement.innerHTML = cardHTML;
         return cardElement;
     }
 
-    // --- Lógica de Jogo e Ações ---
     function checkWin(card) {
         const drawnSet = new Set(state.drawnNumbers);
         const cardNumbers = card.numbers;
         const size = 5;
         const isMarked = (r, c) => { const num = cardNumbers[r][c]; return num === '⭐️' || drawnSet.has(num); };
+        
+        if (state.settings.winCondition === 'custom' && state.settings.customWinPattern) {
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (state.settings.customWinPattern[r][c] && !isMarked(r, c)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
         if (state.settings.winCondition === 'full') return cardNumbers.flat().every(num => num === '⭐️' || drawnSet.has(num));
         for (let r = 0; r < size; r++) if (Array.from({length: size}, (_, c) => isMarked(r, c)).every(Boolean)) return true;
         for (let c = 0; c < size; c++) if (Array.from({length: size}, (_, r) => isMarked(r, c)).every(Boolean)) return true;
@@ -428,7 +482,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return card.numbers.flat().reduce((count, num) => (num === '⭐️' || drawnSet.has(num)) ? count + 1 : count, 0);
     }
 
-    // --- Lógica de Modais e Formulários ---
     window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
     window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
 
@@ -465,13 +518,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const col = index % 5;
                     const row = Math.floor(index / 5);
                     if (row < 4) {
-                        // Move down in the same column
                         inputs[index + 5].focus();
                     } else if (col < 4) {
-                        // At the bottom of a column, move to the top of the next one
                         inputs[col + 1].focus();
                     } else {
-                        // Last cell of the grid, move to the save button
                         e.target.form.querySelector('button[type="submit"]').focus();
                     }
                 }
@@ -608,11 +658,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('settings-btn').addEventListener('click', () => {
         document.querySelector(`input[name="win-condition"][value="${state.settings.winCondition}"]`).checked = true;
+        const customRadio = document.getElementById('win-custom');
+        ui.customPatternSection.style.display = customRadio.checked ? 'block' : 'none';
+        if (state.settings.customWinPattern) {
+            visualizePattern(state.settings.customWinPattern);
+        }
         openModal('settings-modal');
     });
 
     window.saveSettings = () => {
-        state.settings.winCondition = document.querySelector('input[name="win-condition"]:checked').value;
+        const winCondition = document.querySelector('input[name="win-condition"]:checked').value;
+        if (winCondition === 'custom' && !state.settings.customWinPattern) {
+            alert('Por favor, gere um padrão personalizado antes de salvar.');
+            return;
+        }
+        state.settings.winCondition = winCondition;
         saveState();
         renderApp();
         closeModal('settings-modal');
@@ -673,67 +733,132 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     });
 
-    // --- Lógica OCR ---
-    document.getElementById('camera-entry-btn').addEventListener('click', () => {
-        closeModal('add-card-choice-modal');
-        document.getElementById('camera-file-input').click();
-    });
-
-    document.getElementById('camera-file-input').addEventListener('change', async (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        openModal('ocr-loading-modal');
-        const progressBar = document.getElementById('ocr-progress-bar');
-        const statusText = document.getElementById('ocr-status-text');
-        try {
-            const worker = await Tesseract.createWorker('por', 1, { logger: m => {
-                if (m.status === 'recognizing text') {
-                    progressBar.style.width = `${m.progress * 100}%`;
-                    statusText.textContent = `A reconhecer... (${Math.round(m.progress * 100)}%)`;
-                } else { statusText.textContent = m.status; }
-            }});
-            const { data: { text } } = await worker.recognize(file);
-            await worker.terminate();
-            const numbers = text.match(/\d+/g)?.map(Number) || [];
-            let cardGrid = Array(25).fill('');
-            let uniqueNumbers = new Set();
-            for(const num of numbers) {
-                if (uniqueNumbers.has(num)) continue;
-                for(let col = 0; col < 5; col++){
-                    if (num >= BINGO_COLS[col].min && num <= BINGO_COLS[col].max) {
-                        for(let row = 0; row < 5; row++) {
-                             const index = row * 5 + col;
-                             if(!cardGrid[index]){
-                                 cardGrid[index] = num; uniqueNumbers.add(num); break;
-                             }
-                        }
-                        break;
-                    }
-                }
+    document.getElementById('delete-all-cards-btn').addEventListener('click', () => {
+        showConfirm(
+            'Apagar Todas as Cartelas',
+            'Tem a certeza de que deseja apagar TODAS as cartelas? Esta ação não pode ser desfeita.',
+            () => {
+                state.cards = [];
+                saveState();
+                renderApp();
             }
-            if (!cardGrid[12]) cardGrid[12] = '⭐️';
-            let headerHTML = '<div class="bingo-grid text-center font-bold text-white mb-1">';
-            Object.values(BINGO_COLS).forEach(col => { headerHTML += `<div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">${col.name}</span><span class="text-xs font-light tracking-tighter">${col.min}-${col.max}</span></div>`; });
-            headerHTML += '</div>';
-            ui.ocrCardPreview.innerHTML = `${headerHTML}<div class="p-2 border-x border-b rounded-b-md"><div id="ocr-grid" class="bingo-grid"></div></div>`;
-            createInputGrid(document.getElementById('ocr-grid'), cardGrid);
-            openModal('ocr-confirmation-modal');
-        } catch (error) { console.error(error); alert('Ocorreu um erro ao processar a imagem.'); } 
-        finally { closeModal('ocr-loading-modal'); e.target.value = null; }
+        );
+    });
+    
+    // --- Lógica Gemini API ---
+    async function callGemini(prompt, schema = null) {
+        const apiKey = ""; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        let payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }]
+        };
+
+        if (schema) {
+            payload.generationConfig = {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            };
+        }
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.statusText}`);
+            }
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error("Resposta da API inválida.");
+            }
+        } catch (error) {
+            console.error("Erro ao chamar a API Gemini:", error);
+            alert("Ocorreu um erro ao comunicar com a IA. Por favor, tente novamente.");
+            return null;
+        }
+    }
+
+    document.getElementById('announcer-btn').addEventListener('click', async () => {
+        const lastNumber = state.drawnNumbers[state.drawnNumbers.length - 1];
+        if (!lastNumber) return;
+
+        const letter = Object.values(BINGO_COLS).find(c => lastNumber >= c.min && lastNumber <= c.max).name;
+        const fullNumber = `${letter}${lastNumber}`;
+        
+        const prompt = `Crie uma chamada curta, divertida e temática para o número de bingo ${fullNumber}. Por exemplo, para B12, você poderia dizer 'B12, uma dúzia de pastéis!'. Seja criativo e breve.`;
+        
+        const announcementText = await callGemini(prompt);
+        if (announcementText) {
+            document.getElementById('announcement-title').textContent = fullNumber;
+            document.getElementById('announcement-text').textContent = announcementText;
+            openModal('announcement-modal');
+        }
     });
 
-    document.getElementById('save-ocr-card-btn').addEventListener('click', () => {
-        const errorDiv = document.getElementById('ocr-form-error');
-        const result = validateAndExtractFormData(document.getElementById('ocr-confirmation-modal'), document.getElementById('ocr-grid'));
-        if (result.error) { errorDiv.textContent = result.error; errorDiv.classList.remove('hidden'); return; }
-        state.cards.push({ id: `card_${Date.now()}`, ...result.data });
-        saveState();
-        renderApp();
-        closeModal('ocr-confirmation-modal');
-        errorDiv.classList.add('hidden');
+    document.querySelectorAll('input[name="win-condition"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            ui.customPatternSection.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        });
+    });
+
+    function visualizePattern(pattern) {
+        ui.patternVisualizer.innerHTML = '';
+        if (!pattern || pattern.length !== 5) {
+            ui.patternVisualizerContainer.style.display = 'none';
+            return;
+        }
+        pattern.flat().forEach(isMarked => {
+            const cell = document.createElement('div');
+            cell.className = `pattern-cell ${isMarked ? 'bg-blue-600' : 'bg-gray-200'}`;
+            ui.patternVisualizer.appendChild(cell);
+        });
+        ui.patternVisualizerContainer.style.display = 'block';
+    }
+
+    document.getElementById('generate-pattern-btn').addEventListener('click', async () => {
+        const description = document.getElementById('custom-pattern-input').value.trim();
+        if (!description) {
+            alert('Por favor, descreva um padrão.');
+            return;
+        }
+
+        ui.patternLoading.style.display = 'block';
+        ui.patternVisualizerContainer.style.display = 'none';
+
+        const prompt = `Analise a seguinte descrição de um padrão de vitória para um bingo 5x5: "${description}". O centro (índice [2][2]) é sempre um espaço livre e deve ser marcado como 'true'. Retorne uma matriz JSON 5x5 onde cada posição é 'true' se fizer parte do padrão de vitória e 'false' caso contrário.`;
+        const schema = {
+            type: "OBJECT",
+            properties: { "pattern": { type: "ARRAY", items: { type: "ARRAY", items: { type: "BOOLEAN" } } } }
+        };
+
+        const resultText = await callGemini(prompt, schema);
+        ui.patternLoading.style.display = 'none';
+
+        if (resultText) {
+            try {
+                const resultJson = JSON.parse(resultText);
+                if (resultJson.pattern && resultJson.pattern.length === 5) {
+                    state.settings.customWinPattern = resultJson.pattern;
+                    saveState();
+                    visualizePattern(resultJson.pattern);
+                } else {
+                    alert('A IA não conseguiu gerar um padrão válido. Tente uma descrição diferente.');
+                }
+            } catch (e) {
+                console.error("Erro ao analisar o JSON do padrão:", e);
+                alert('Ocorreu um erro ao processar a resposta da IA.');
+            }
+        }
     });
 
     // --- Carga Inicial ---
     loadState();
+    setupPWA();
     renderApp();
 });
 </script>
