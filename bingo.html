@@ -3,864 +3,446 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Pro (beta)</title>
+    <title>Bingo Pro</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Tesseract.js for OCR -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1E40AF">
-    <link rel="apple-touch-icon" href="icon-192x192.png">
-
+    <!-- Custom Styles -->
     <style>
-        /* Estilos personalizados para melhor UI/UX */
         body {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
         }
-        .bingo-grid {
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+        /* Custom animation for loading spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin 2s linear infinite;
+        }
+
+        /* Custom styles for winner banner */
+        .winner-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            background-color: rgba(255, 215, 0, 0.9);
+            color: #333;
+            padding: 8px 16px;
+            font-weight: 900;
+            font-size: 1.8rem;
+            border-radius: 8px;
+            text-transform: uppercase;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        /* Styling for the card grid numbers */
+        .bingo-card-grid {
             display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 0.5rem;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
         }
-        .bingo-cell {
+        .bingo-card-cell {
             aspect-ratio: 1 / 1;
             display: flex;
-            justify-content: center;
             align-items: center;
-            border-radius: 0.375rem;
-            font-weight: bold;
-            font-size: clamp(0.8rem, 3.5vw, 1.25rem);
+            justify-content: center;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
         }
-        .manual-input {
+        .bingo-card-cell.marked {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            font-weight: 700;
+        }
+        .bingo-card-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            border-radius: 4px;
+        }
+        .bingo-card-header .letter {
+            font-size: 1.25rem;
+        }
+        .bingo-card-header .range {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+        
+        /* Modal styles */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            text-align: center;
-            font-weight: bold;
-            border-radius: 0.375rem;
-            border: 1px solid #D1D5DB; /* gray-300 */
-        }
-        .manual-input:focus {
-            outline: 2px solid #3B82F6; /* blue-500 */
-            border-color: transparent;
-        }
-        .bingo-winner-overlay {
-            position: absolute;
-            inset: 0;
-            background-color: rgba(234, 179, 8, 0.8); /* amber-400 com opacidade */
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
             display: flex;
+            align-items: center;
             justify-content: center;
-            align-items: center;
-            font-size: 2.25rem; /* text-4xl */
-            font-weight: 900; /* font-black */
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            border-radius: 0.5rem; /* rounded-lg */
-            transform: rotate(-10deg);
         }
-        .btn-icon {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .pattern-cell {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #ccc;
+        .modal-content {
+            background-color: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 95vw;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="text-gray-800">
+    
+    <!-- Notification Container -->
+    <div id="notification-container" class="fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center"></div>
 
-    <!-- Container Principal -->
-    <div class="container mx-auto p-4 max-w-7xl">
-        
-        <header class="bg-white rounded-xl shadow-lg p-4 md:p-6 mb-8">
-            <div class="flex items-center gap-4">
-                <div class="flex-shrink-0">
-                    <div class="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-black text-3xl md:text-4xl shadow-md ring-4 ring-blue-500/30">
-                        B
-                    </div>
+    <div id="app" class="container mx-auto p-4 max-w-7xl pb-24">
+        <!-- Header -->
+        <header class="bg-white p-6 rounded-xl shadow-md mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="bg-blue-500 text-white w-16 h-16 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner">
+                    B
                 </div>
                 <div>
-                    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">
-                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
-                            Bingo Pro (beta)
-                        </span>
+                    <h1 class="text-4xl font-bold text-gray-800">
+                        Bingo Pro<sup class="text-sm font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md -top-5 relative ml-1">beta</sup>
                     </h1>
-                    <p class="mt-1 text-base md:text-lg text-gray-500">O seu gestor de cartelas de bingo offline.</p>
+                    <p class="text-gray-500">O seu gestor de cartelas de bingo offline.</p>
                 </div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Coluna Esquerda: Sorteio e Controles -->
-            <div class="lg:col-span-1 space-y-6">
-                <!-- Secção de Sorteio -->
-                <section id="drawing-section" class="bg-white p-4 rounded-lg shadow">
-                    <h2 class="text-xl font-bold mb-3 border-b pb-2">Sorteio</h2>
-                    <form id="draw-form" class="flex gap-2 mb-3">
-                        <input type="number" id="drawn-number-input" min="1" max="75" placeholder="Nº Sorteado" class="w-full p-2 border rounded-md" required>
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Adicionar</button>
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column -->
+            <div class="lg:col-span-1 flex flex-col gap-6">
+                <!-- Sorteio Section -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4">Sorteio</h2>
+                    <form id="draw-form" class="flex items-center gap-2 mb-4">
+                        <input type="number" id="drawn-number-input" placeholder="Nº Sorteado" min="1" max="75" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <button type="submit" class="bg-blue-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-blue-600 transition shadow">Adicionar</button>
                     </form>
+                    
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-semibold">Números Sorteados (<span id="drawn-count">0</span>)</h3>
-                        <div class="flex gap-2 items-center">
-                            <button id="sort-drawn-button" class="text-sm text-blue-600 hover:underline btn-icon"></button>
-                            <button id="clear-draw-button" class="text-sm bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600">Limpar</button>
+                        <h3 class="text-lg font-semibold">Números sorteados (<span id="drawn-count">0</span>)</h3>
+                        <div class="flex gap-2">
+                            <button id="sort-drawn-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                                <i class="fa-solid fa-arrow-up-wide-short"></i>
+                                <span id="sort-order-text">Crescente</span>
+                            </button>
+                            <button id="clear-drawn-btn" class="bg-red-500 text-white font-semibold py-1 px-3 rounded-lg hover:bg-red-600 transition text-sm shadow">Limpar</button>
                         </div>
                     </div>
-                    <div id="drawn-numbers-list" class="flex flex-wrap gap-2 p-2 bg-gray-100 rounded-md min-h-[60px]">
-                        <!-- Números sorteados serão injetados aqui -->
-                    </div>
-                    <div id="announcer-container" class="mt-3 text-right hidden">
-                        <button id="announcer-btn" class="text-sm bg-amber-500 text-white px-3 py-1 rounded-md hover:bg-amber-600 btn-icon">
-                            ✨ Anunciar Número
-                        </button>
-                    </div>
-                </section>
 
-                <!-- Secção de Controles -->
-                <section id="controls-section" class="bg-white p-4 rounded-lg shadow">
-                    <h2 class="text-xl font-bold mb-3 border-b pb-2">Cartelas</h2>
+                    <div id="drawn-numbers-list" class="flex flex-wrap justify-start gap-2 bg-gray-100 p-3 rounded-lg min-h-[50px]">
+                        <!-- Drawn numbers will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Card Controls Section -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold mb-4">Cartelas</h2>
                     <div class="grid grid-cols-2 gap-3">
-                        <button id="add-card-btn" class="bg-green-600 text-white p-3 rounded-md hover:bg-green-700 font-semibold">Adicionar</button>
-                        <button id="import-cards-btn" class="bg-indigo-600 text-white p-3 rounded-md hover:bg-indigo-700 font-semibold">Importar</button>
-                        <input type="file" id="import-file-input" class="hidden" accept=".json">
-                        <button id="export-cards-btn" class="bg-purple-600 text-white p-3 rounded-md hover:bg-purple-700 font-semibold">Exportar</button>
-                        <button id="settings-btn" class="bg-gray-600 text-white p-3 rounded-md hover:bg-gray-700 font-semibold">Configurar</button>
+                        <button id="add-card-btn" class="bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-plus-circle"></i> Adicionar</button>
+                        <button id="import-btn" class="bg-purple-500 text-white font-bold py-3 rounded-lg hover:bg-purple-600 transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-upload"></i> Importar</button>
+                        <button id="export-btn" class="bg-indigo-500 text-white font-bold py-3 rounded-lg hover:bg-indigo-600 transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-download"></i> Exportar</button>
+                        <button id="config-btn" class="bg-gray-500 text-white font-bold py-3 rounded-lg hover:bg-gray-600 transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-gear"></i> Configurar</button>
                     </div>
-                </section>
+                </div>
             </div>
 
-            <!-- Coluna Direita: Container de Cartelas -->
+            <!-- Right Column -->
             <div class="lg:col-span-2">
-                <!-- Controles de Ordenação de Cartelas -->
-                <div class="mb-4 flex justify-end items-center gap-2">
-                    <label for="card-sort-select" class="text-sm font-medium text-gray-700">Ordenar cartelas por:</label>
-                    <select id="card-sort-select" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
-                        <option value="mostMarked">Mais marcadas</option>
-                        <option value="alphabetical">Ordem Alfabética</option>
-                    </select>
-                </div>
-
-                <main>
-                    <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <!-- Cartelas de bingo serão injetadas aqui -->
-                        <div id="no-cards-message" class="md:col-span-2 xl:col-span-3 text-center p-10 bg-white rounded-lg shadow">
-                            <p class="text-gray-500">Nenhuma cartela registada.</p>
-                            <p class="text-gray-500 mt-2">Use o botão "Adicionar Cartela" para começar.</p>
-                        </div>
+                <div class="flex justify-end mb-4">
+                    <div class="flex items-center gap-2">
+                        <label for="sort-cards-by" class="font-medium text-gray-600">Ordenar cartelas por:</label>
+                        <select id="sort-cards-by" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="marked">Mais marcadas</option>
+                            <option value="alpha">Ordem alfabética</option>
+                        </select>
                     </div>
-                </main>
+                </div>
+                <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <!-- Cards will be injected here -->
+                </div>
+                 <div id="no-cards-message" class="hidden text-center bg-white p-10 rounded-xl shadow-md">
+                    <i class="fa-solid fa-clone text-5xl text-gray-300 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-700">Nenhuma cartela registrada</h3>
+                    <p class="text-gray-500 mt-2">Use o botão "Adicionar" para começar a gerenciar suas cartelas de bingo.</p>
+                </div>
             </div>
-        </div>
-        
-        <!-- Botão para Apagar Todas as Cartelas -->
-        <div id="delete-all-container" class="mt-8 text-center hidden">
-            <button id="delete-all-cards-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors">
-                Apagar Todas as Cartelas
+        </main>
+
+        <!-- Footer -->
+        <footer id="footer" class="text-center mt-8">
+            <button id="delete-all-cards-btn" class="hidden bg-transparent border-2 border-red-500 text-red-500 font-bold py-3 px-6 rounded-lg hover:bg-red-500 hover:text-white transition shadow-sm">
+                <i class="fa-solid fa-trash-alt"></i> Apagar todas as cartelas
             </button>
-        </div>
-
-    </div>
-    
-    <!-- Modais -->
-    <div id="add-card-choice-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-            <h3 class="text-xl font-bold mb-4">Como deseja adicionar a cartela?</h3>
-            <div class="space-y-3">
-                <button id="manual-entry-btn" class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 font-semibold">Preenchimento Manual</button>
-                <button id="camera-entry-btn" class="w-full bg-teal-600 text-white p-3 rounded-md hover:bg-teal-700 font-semibold">Usar a Câmera</button>
-                <input type="file" id="camera-file-input" class="hidden" accept="image/*" capture="environment">
-            </div>
-            <button onclick="closeModal('add-card-choice-modal')" class="mt-4 text-gray-500 hover:text-gray-700">Cancelar</button>
-        </div>
+        </footer>
     </div>
 
-    <div id="manual-entry-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 class="text-xl font-bold mb-4">Nova Cartela Manual</h3>
-            <form id="manual-card-form">
-                <div class="mb-4">
-                    <label for="card-name-input" class="block text-sm font-medium text-gray-700 mb-1">Nome da Cartela</label>
-                    <input type="text" id="card-name-input" placeholder="Ex: Cartela da Sorte" class="w-full p-2 border rounded-md" required>
-                </div>
-                <div class="mb-4">
-                    <div class="p-2 border rounded">
-                    <div class="bingo-grid text-center font-bold text-white mb-1">
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">B</span><span class="text-xs font-light tracking-tighter">1-15</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">I</span><span class="text-xs font-light tracking-tighter">16-30</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">N</span><span class="text-xs font-light tracking-tighter">31-45</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">G</span><span class="text-xs font-light tracking-tighter">46-60</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">O</span><span class="text-xs font-light tracking-tighter">61-75</span></div>
-                    </div>
-                    <div id="manual-grid" class="bingo-grid"></div></div>
-                </div>
-                <div id="manual-form-error" class="text-red-600 text-sm mb-3 hidden"></div>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeModal('manual-entry-modal')" class="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                    <button type="submit" id="save-card-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-semibold">Salvar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <div id="edit-card-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 class="text-xl font-bold mb-4">Editar Cartela</h3>
-            <form id="edit-card-form">
-                <input type="hidden" id="edit-card-id">
-                <div class="mb-4">
-                    <label for="edit-card-name-input" class="block text-sm font-medium text-gray-700 mb-1">Nome da Cartela</label>
-                    <input type="text" id="edit-card-name-input" class="w-full p-2 border rounded-md" required>
-                </div>
-                <div class="mb-4">
-                    <div class="p-2 border rounded">
-                    <div class="bingo-grid text-center font-bold text-white mb-1">
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">B</span><span class="text-xs font-light tracking-tighter">1-15</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">I</span><span class="text-xs font-light tracking-tighter">16-30</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">N</span><span class="text-xs font-light tracking-tighter">31-45</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">G</span><span class="text-xs font-light tracking-tighter">46-60</span></div>
-                        <div class="bg-blue-700 p-1 rounded-t-md flex flex-col items-center justify-center"><span class="text-xl">O</span><span class="text-xs font-light tracking-tighter">61-75</span></div>
-                    </div>
-                    <div id="edit-grid" class="bingo-grid"></div></div>
-                </div>
-                <div id="edit-form-error" class="text-red-600 text-sm mb-3 hidden"></div>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeModal('edit-card-modal')" class="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Salvar Alterações</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Modals Container -->
+    <div id="modal-container"></div>
 
-    <div id="ocr-loading-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm text-center">
-            <h3 class="text-xl font-bold mb-4">A ler a cartela...</h3>
-            <p class="text-gray-600 mb-4">Isto pode demorar alguns segundos. Mantenha a página aberta.</p>
-            <div class="w-full bg-gray-200 rounded-full h-2.5"><div id="ocr-progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div></div>
-            <p id="ocr-status-text" class="mt-2 text-sm text-gray-500">A inicializar...</p>
-        </div>
-    </div>
+    <!-- Hidden file inputs -->
+    <input type="file" id="import-file-input" class="hidden" accept=".json">
+    <input type="file" id="camera-input" class="hidden" accept="image/*" capture="environment">
 
-    <div id="ocr-confirmation-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 class="text-xl font-bold mb-4">Confirme a Cartela</h3>
-            <p class="text-sm text-gray-600 mb-4">Verifique se os números foram lidos corretamente. Pode editá-los se necessário.</p>
-            <div id="ocr-card-preview" class="mb-4"></div>
-            <div id="ocr-form-error" class="text-red-600 text-sm mb-3 hidden"></div>
-             <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeModal('ocr-confirmation-modal')" class="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                <button id="save-ocr-card-btn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-semibold">Salvar Cartela</button>
-            </div>
-        </div>
-    </div>
+    <!-- JavaScript -->
+    <script type="module">
+        // --- Gemini API Configuration ---
+        const GEMINI_API_KEY = ""; // Provided by the environment
 
-    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md my-8">
-            <h3 class="text-xl font-bold mb-4 border-b pb-2">Configurações de Vitória</h3>
-            <div class="space-y-3">
-                <div><input type="radio" id="win-standard" name="win-condition" value="standard" class="mr-2"><label for="win-standard">Padrão (Linha, Coluna ou Diagonal)</label></div>
-                <div><input type="radio" id="win-full" name="win-condition" value="full" class="mr-2"><label for="win-full">Cartela Cheia (Todos os números)</label></div>
-                <div><input type="radio" id="win-custom" name="win-condition" value="custom" class="mr-2"><label for="win-custom">Padrão Personalizado ✨</label></div>
-            </div>
-            <div id="custom-pattern-section" class="mt-4 pt-4 border-t hidden">
-                <label for="custom-pattern-input" class="block text-sm font-medium text-gray-700 mb-1">Descreva o padrão de vitória:</label>
-                <textarea id="custom-pattern-input" rows="2" class="w-full p-2 border rounded-md" placeholder="Ex: as quatro pontas e um X no meio"></textarea>
-                <button id="generate-pattern-btn" class="w-full mt-2 bg-teal-600 text-white p-2 rounded-md hover:bg-teal-700 font-semibold">Gerar Padrão</button>
-                <div id="pattern-visualizer-container" class="mt-3 hidden">
-                    <p class="text-sm font-medium text-gray-700 mb-1">Visualização do Padrão:</p>
-                    <div id="pattern-visualizer" class="grid grid-cols-5 gap-1 mx-auto w-max"></div>
-                </div>
-                 <div id="pattern-loading" class="text-center mt-2 hidden">A gerar...</div>
-            </div>
-            <div class="flex justify-end mt-6"><button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Salvar</button></div>
-        </div>
-    </div>
-    
-    <div id="export-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4">Exportar arquivo</h3>
-            <form id="export-form">
-                <label for="export-filename-input" class="block text-sm font-medium text-gray-700 mb-1">Nome do arquivo</label>
-                <input type="text" id="export-filename-input" class="w-full p-2 border rounded-md" required>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button type="button" onclick="closeModal('export-modal')" class="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                    <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Exportar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-            <h3 id="confirm-title" class="text-lg font-bold mb-2">Confirmar Ação</h3>
-            <p id="confirm-message" class="text-gray-600 mb-6">Tem a certeza?</p>
-            <div class="flex justify-center gap-4">
-                <button id="confirm-cancel-btn" class="bg-gray-300 px-6 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                <button id="confirm-ok-btn" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700">Confirmar</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="announcement-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-            <h3 id="announcement-title" class="text-2xl font-bold mb-2 text-blue-800"></h3>
-            <p id="announcement-text" class="text-gray-700 text-lg mb-6"></p>
-            <button onclick="closeModal('announcement-modal')" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">OK</button>
-        </div>
-    </div>
-
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('ServiceWorker: Registado com sucesso'))
-            .catch(err => console.log(`ServiceWorker: Falha no registo: ${err}`));
-    });
-}
-
-// --- Lógica da Aplicação ---
-document.addEventListener('DOMContentLoaded', () => {
-
-    const BINGO_COLS = { 0: { name: 'B', min: 1, max: 15 }, 1: { name: 'I', min: 16, max: 30 }, 2: { name: 'N', min: 31, max: 45 }, 3: { name: 'G', min: 46, max: 60 }, 4: { name: 'O', min: 61, max: 75 } };
-    const ICONS = { sortAsc: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m-4 4l4 4" /></svg>`, clock: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`, trash: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`, pencil: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>`, };
-    
-    const ui = {
-        drawnNumbersList: document.getElementById('drawn-numbers-list'),
-        drawnCount: document.getElementById('drawn-count'),
-        cardsContainer: document.getElementById('cards-container'),
-        noCardsMessage: document.getElementById('no-cards-message'),
-        sortDrawnButton: document.getElementById('sort-drawn-button'),
-        cardSortSelect: document.getElementById('card-sort-select'),
-        manualGrid: document.getElementById('manual-grid'),
-        editGrid: document.getElementById('edit-grid'),
-        ocrCardPreview: document.getElementById('ocr-card-preview'),
-        deleteAllContainer: document.getElementById('delete-all-container'),
-        announcerContainer: document.getElementById('announcer-container'),
-        customPatternSection: document.getElementById('custom-pattern-section'),
-        patternVisualizerContainer: document.getElementById('pattern-visualizer-container'),
-        patternVisualizer: document.getElementById('pattern-visualizer'),
-        patternLoading: document.getElementById('pattern-loading'),
-    };
-
-    let state = { drawnNumbers: [], cards: [], settings: { sortOrder: 'recent', winCondition: 'standard', cardSortOrder: 'mostMarked', customWinPattern: null } };
-
-    function saveState() { localStorage.setItem('bingoProData', JSON.stringify(state)); }
-    function loadState() {
-        const savedState = JSON.parse(localStorage.getItem('bingoProData'));
-        if (savedState) {
-            state = { ...state, ...savedState };
-            state.settings = { ...state.settings, ...(savedState.settings || {}) };
-        }
-    }
-
-    function setupPWA() {
-        function generateIcon(size) {
-            const canvas = document.createElement('canvas');
-            canvas.width = size; canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1E40AF'; ctx.fillRect(0, 0, size, size);
-            ctx.fillStyle = 'white'; ctx.font = `bold ${size * 0.6}px Arial`;
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('B', size / 2, size / 2);
-            return canvas.toDataURL('image/png');
-        }
-        const manifest = { "name": "Bingo Pro (beta)", "short_name": "BingoPro", "start_url": ".", "display": "standalone", "background_color": "#f3f4f6", "theme_color": "#1E40AF", "description": "O seu gestor de cartelas de bingo offline.", "icons": [ { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" }, { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" } ] };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-        document.querySelector('link[rel="manifest"]').href = URL.createObjectURL(manifestBlob);
-        document.querySelector('link[rel="apple-touch-icon"]').href = generateIcon(192);
-    }
-    
-    function renderApp() {
-        renderDrawnNumbers();
-        renderCards();
-        ui.cardSortSelect.value = state.settings.cardSortOrder;
-    }
-
-    function renderDrawnNumbers() {
-        ui.drawnNumbersList.innerHTML = '';
-        ui.drawnCount.textContent = state.drawnNumbers.length;
-        const numbersToRender = [...state.drawnNumbers];
-        if (state.settings.sortOrder === 'asc') {
-            numbersToRender.sort((a, b) => a - b);
-            ui.sortDrawnButton.innerHTML = `${ICONS.clock} Recentes`;
-        } else {
-            numbersToRender.reverse();
-            ui.sortDrawnButton.innerHTML = `${ICONS.sortAsc} Crescente`;
-        }
-        if (numbersToRender.length === 0) {
-            ui.drawnNumbersList.innerHTML = '<p class="text-gray-400 text-sm w-full text-center">Nenhum número sorteado ainda.</p>';
-            ui.announcerContainer.classList.add('hidden');
-        } else {
-            numbersToRender.forEach(num => {
-                const letter = Object.values(BINGO_COLS).find(c => num >= c.min && num <= c.max).name;
-                const ball = document.createElement('button');
-                ball.className = 'w-10 h-10 flex flex-col justify-center items-center bg-white rounded-full shadow font-bold leading-none';
-                ball.innerHTML = `<span class="text-xs text-gray-500">${letter}</span><span>${num}</span>`;
-                ball.dataset.number = num;
-                ball.title = `Remover ${num}`;
-                ui.drawnNumbersList.appendChild(ball);
-            });
-            ui.announcerContainer.classList.remove('hidden');
-        }
-    }
-
-    function renderCards() {
-        ui.cardsContainer.innerHTML = '';
-        const sortControlsLabel = document.querySelector('label[for="card-sort-select"]');
-        if (state.cards.length === 0) {
-            ui.cardsContainer.appendChild(ui.noCardsMessage);
-            ui.noCardsMessage.style.display = 'block';
-            ui.cardSortSelect.style.display = 'none';
-            if (sortControlsLabel) sortControlsLabel.style.display = 'none';
-            ui.deleteAllContainer.classList.add('hidden');
-            return;
-        }
-        ui.noCardsMessage.style.display = 'none';
-        ui.cardSortSelect.style.display = 'inline-block';
-        if (sortControlsLabel) sortControlsLabel.style.display = 'inline-block';
-        ui.deleteAllContainer.classList.remove('hidden');
-        
-        let cardsToRender = [...state.cards];
-        if (state.settings.cardSortOrder === 'alphabetical') {
-            cardsToRender.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
-        } else {
-            cardsToRender.sort((a, b) => countMarked(b) - countMarked(a));
-        }
-        cardsToRender.forEach(card => ui.cardsContainer.appendChild(createCardElement(card)));
-    }
-
-    function createCardElement(card) {
-        const isWinner = checkWin(card);
-        const cardElement = document.createElement('div');
-        cardElement.className = `bg-white rounded-lg shadow p-3 relative ${isWinner ? 'border-4 border-yellow-400' : ''}`;
-        let cardHTML = `<div class="flex justify-between items-start mb-2"><h3 class="font-bold text-lg text-blue-800 break-all pr-2">${card.name}</h3><div class="flex items-center gap-2 flex-shrink-0"><button class="edit-card-btn text-blue-600 hover:text-blue-800" data-id="${card.id}" title="Editar Cartela">${ICONS.pencil}</button><button class="delete-card-btn text-red-500 hover:text-red-700" data-id="${card.id}" title="Excluir Cartela">${ICONS.trash}</button></div></div><div class="p-2 border rounded"><div class="bingo-grid text-center font-bold text-white mb-1">${Object.values(BINGO_COLS).map(c => `<div class="bg-blue-700 p-1 rounded-t-md">${c.name}</div>`).join('')}</div><div class="bingo-grid">`;
-        card.numbers.flat().forEach(number => {
-            const isDrawn = state.drawnNumbers.includes(number) || number === '⭐️';
-            const cellClasses = number === '⭐️' ? 'bg-yellow-400 text-gray-800' : isDrawn ? 'bg-blue-600 text-white' : 'bg-gray-200';
-            cardHTML += `<div class="bingo-cell ${cellClasses}">${number}</div>`;
-        });
-        cardHTML += `</div></div>`;
-        if (isWinner) cardHTML += `<div class="bingo-winner-overlay">BINGO!</div>`;
-        cardElement.innerHTML = cardHTML;
-        return cardElement;
-    }
-
-    function checkWin(card) {
-        const drawnSet = new Set(state.drawnNumbers);
-        const cardNumbers = card.numbers;
-        const size = 5;
-        const isMarked = (r, c) => { const num = cardNumbers[r][c]; return num === '⭐️' || drawnSet.has(num); };
-        
-        if (state.settings.winCondition === 'custom' && state.settings.customWinPattern) {
-            for (let r = 0; r < size; r++) {
-                for (let c = 0; c < size; c++) {
-                    if (state.settings.customWinPattern[r][c] && !isMarked(r, c)) {
-                        return false;
-                    }
-                }
+        // --- Application State ---
+        let state = {
+            drawnNumbers: [],
+            cards: [],
+            settings: {
+                winCondition: 'full', // 'full' or 'corners'
+                sortDrawn: 'asc', // 'asc' or 'desc'
+                sortCards: 'marked', // 'marked' or 'alpha'
             }
-            return true;
-        }
-        if (state.settings.winCondition === 'full') return cardNumbers.flat().every(num => num === '⭐️' || drawnSet.has(num));
-        for (let r = 0; r < size; r++) if (Array.from({length: size}, (_, c) => isMarked(r, c)).every(Boolean)) return true;
-        for (let c = 0; c < size; c++) if (Array.from({length: size}, (_, r) => isMarked(r, c)).every(Boolean)) return true;
-        if (Array.from({length: size}, (_, i) => isMarked(i, i)).every(Boolean)) return true;
-        if (Array.from({length: size}, (_, i) => isMarked(i, size - 1 - i)).every(Boolean)) return true;
-        return false;
-    }
+        };
 
-    function countMarked(card) {
-        const drawnSet = new Set(state.drawnNumbers);
-        return card.numbers.flat().reduce((count, num) => (num === '⭐️' || drawnSet.has(num)) ? count + 1 : count, 0);
-    }
+        // --- Interaction State ---
+        let lastCardTap = 0;
+        let lastDrawnTap = 0;
 
-    window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
-    window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        // --- DOM Elements ---
+        const dom = {
+            app: document.getElementById('app'),
+            notificationContainer: document.getElementById('notification-container'),
+            drawForm: document.getElementById('draw-form'),
+            drawnNumberInput: document.getElementById('drawn-number-input'),
+            drawnCount: document.getElementById('drawn-count'),
+            drawnNumbersList: document.getElementById('drawn-numbers-list'),
+            sortDrawnBtn: document.getElementById('sort-drawn-btn'),
+            sortOrderText: document.getElementById('sort-order-text'),
+            clearDrawnBtn: document.getElementById('clear-drawn-btn'),
+            addCardBtn: document.getElementById('add-card-btn'),
+            importBtn: document.getElementById('import-btn'),
+            exportBtn: document.getElementById('export-btn'),
+            configBtn: document.getElementById('config-btn'),
+            sortCardsBy: document.getElementById('sort-cards-by'),
+            cardsContainer: document.getElementById('cards-container'),
+            noCardsMessage: document.getElementById('no-cards-message'),
+            footer: document.getElementById('footer'),
+            deleteAllCardsBtn: document.getElementById('delete-all-cards-btn'),
+            modalContainer: document.getElementById('modal-container'),
+            importFileInput: document.getElementById('import-file-input'),
+            cameraInput: document.getElementById('camera-input'),
+        };
 
-    function showConfirm(title, message, onConfirm) {
-        document.getElementById('confirm-title').textContent = title;
-        document.getElementById('confirm-message').textContent = message;
-        openModal('confirm-modal');
-        const okBtn = document.getElementById('confirm-ok-btn');
-        const cancelBtn = document.getElementById('confirm-cancel-btn');
-        const confirmHandler = () => { onConfirm(); closeModal('confirm-modal'); };
-        const cancelHandler = () => closeModal('confirm-modal');
-        okBtn.addEventListener('click', confirmHandler, { once: true });
-        cancelBtn.addEventListener('click', cancelHandler, { once: true });
-    }
+        // --- Constants ---
+        const BINGO_COLS = {
+            'B': { min: 1, max: 15 },
+            'I': { min: 16, max: 30 },
+            'N': { min: 31, max: 45 },
+            'G': { min: 46, max: 60 },
+            'O': { min: 61, max: 75 },
+        };
+        const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O'];
 
-    function createInputGrid(container, data = []) {
-        container.innerHTML = '';
-        const inputs = [];
-        for (let i = 0; i < 25; i++) {
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.className = 'manual-input h-11 text-base';
-            const colIndex = i % 5;
-            input.min = BINGO_COLS[colIndex].min;
-            input.max = BINGO_COLS[colIndex].max;
-            if (data.length > 0) { const value = data[i]; if (value !== '⭐️') input.value = value; }
-            container.appendChild(input);
-            inputs.push(input);
-        }
-        inputs.forEach((input, index) => {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const col = index % 5;
-                    const row = Math.floor(index / 5);
-                    if (row < 4) {
-                        inputs[index + 5].focus();
-                    } else if (col < 4) {
-                        inputs[col + 1].focus();
-                    } else {
-                        e.target.form.querySelector('button[type="submit"]').focus();
-                    }
-                }
-            });
-        });
-    }
-
-    function validateAndExtractFormData(form, gridContainer) {
-        let nameInput = form.querySelector('input[type="text"]');
-        const name = nameInput ? nameInput.value.trim() : "Cartela OCR";
-        const inputs = [...gridContainer.querySelectorAll('input')];
-        const numbers = [], uniqueCheck = new Set();
-        for (let i = 0; i < 25; i++) {
-            let value = inputs[i].value;
-            if (i === 12 && !value) value = '⭐️'; else value = parseInt(value);
-            if (value !== '⭐️' && (isNaN(value) || value === '')) return { error: `O campo na linha ${Math.floor(i/5)+1}, coluna ${i%5+1} está vazio.` };
-            if (value !== '⭐️') {
-                const colIndex = i % 5, colRules = BINGO_COLS[colIndex];
-                if (value < colRules.min || value > colRules.max) return { error: `Número ${value} fora do intervalo para a coluna ${colRules.name}.` };
-                if (uniqueCheck.has(value)) return { error: `Número ${value} está duplicado.` };
-                uniqueCheck.add(value);
-            }
-            numbers.push(value);
-        }
-        const cardRows = Array.from({ length: 5 }, (_, r) => numbers.slice(r * 5, r * 5 + 5));
-        return { data: { name, numbers: cardRows } };
-    }
-
-    // --- Event Listeners ---
-    document.getElementById('draw-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const input = e.target.elements[0];
-        const num = parseInt(input.value);
-        if (!num || num < 1 || num > 75) { alert('Por favor, insira um número válido entre 1 e 75.'); return; }
-        if (state.drawnNumbers.includes(num)) { alert('Este número já foi sorteado.'); return; }
-        state.drawnNumbers.push(num);
-        saveState();
-        renderApp();
-        input.value = '';
-        input.focus();
-    });
-
-    ui.sortDrawnButton.addEventListener('click', () => {
-        state.settings.sortOrder = state.settings.sortOrder === 'recent' ? 'asc' : 'recent';
-        saveState();
-        renderApp();
-    });
-
-    ui.cardSortSelect.addEventListener('change', (e) => {
-        state.settings.cardSortOrder = e.target.value;
-        saveState();
-        renderApp();
-    });
-
-    document.getElementById('clear-draw-button').addEventListener('click', () => {
-        showConfirm('Limpar Sorteio', 'Tem a certeza de que deseja apagar todos os números sorteados?', () => {
-            state.drawnNumbers = [];
-            saveState();
-            renderApp();
-        });
-    });
-
-    ui.drawnNumbersList.addEventListener('click', (e) => {
-        const ball = e.target.closest('button[data-number]');
-        if (ball) {
-            const num = parseInt(ball.dataset.number);
-            showConfirm('Remover Número', `Tem a certeza de que deseja remover o número ${num} do sorteio?`, () => {
-                state.drawnNumbers = state.drawnNumbers.filter(n => n !== num);
-                saveState();
-                renderApp();
-            });
-        }
-    });
-
-    ui.cardsContainer.addEventListener('click', (e) => {
-        const deleteBtn = e.target.closest('.delete-card-btn');
-        if (deleteBtn) {
-            showConfirm('Excluir Cartela', 'Tem a certeza de que deseja excluir esta cartela?', () => {
-                state.cards = state.cards.filter(card => card.id !== deleteBtn.dataset.id);
-                saveState();
-                renderApp();
-            });
-            return;
-        }
-        const editBtn = e.target.closest('.edit-card-btn');
-        if (editBtn) {
-            const card = state.cards.find(c => c.id === editBtn.dataset.id);
-            if (card) {
-                document.getElementById('edit-card-form').reset();
-                document.getElementById('edit-card-id').value = card.id;
-                document.getElementById('edit-card-name-input').value = card.name;
-                createInputGrid(ui.editGrid, card.numbers.flat());
-                openModal('edit-card-modal');
-            }
-        }
-    });
-
-    document.getElementById('add-card-btn').addEventListener('click', () => openModal('add-card-choice-modal'));
-    document.getElementById('manual-entry-btn').addEventListener('click', () => {
-        closeModal('add-card-choice-modal');
-        document.getElementById('manual-card-form').reset();
-        createInputGrid(ui.manualGrid);
-        openModal('manual-entry-modal');
-        document.getElementById('card-name-input').focus();
-    });
-
-    document.getElementById('manual-card-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const errorDiv = document.getElementById('manual-form-error');
-        const result = validateAndExtractFormData(e.target, ui.manualGrid);
-        if (result.error) { errorDiv.textContent = result.error; errorDiv.classList.remove('hidden'); return; }
-        state.cards.push({ id: `card_${Date.now()}`, ...result.data });
-        saveState();
-        renderApp();
-        closeModal('manual-entry-modal');
-        errorDiv.classList.add('hidden');
-    });
-
-    document.getElementById('edit-card-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const errorDiv = document.getElementById('edit-form-error');
-        const cardId = document.getElementById('edit-card-id').value;
-        const result = validateAndExtractFormData(e.target, ui.editGrid);
-        if (result.error) { errorDiv.textContent = result.error; errorDiv.classList.remove('hidden'); return; }
-        const cardIndex = state.cards.findIndex(c => c.id === cardId);
-        if (cardIndex > -1) {
-            state.cards[cardIndex] = { ...state.cards[cardIndex], ...result.data };
-            saveState();
-            renderApp();
-            closeModal('edit-card-modal');
-            errorDiv.classList.add('hidden');
-        }
-    });
-
-    document.getElementById('settings-btn').addEventListener('click', () => {
-        document.querySelector(`input[name="win-condition"][value="${state.settings.winCondition}"]`).checked = true;
-        const customRadio = document.getElementById('win-custom');
-        ui.customPatternSection.style.display = customRadio.checked ? 'block' : 'none';
-        if (state.settings.customWinPattern) {
-            visualizePattern(state.settings.customWinPattern);
-        }
-        openModal('settings-modal');
-    });
-
-    window.saveSettings = () => {
-        const winCondition = document.querySelector('input[name="win-condition"]:checked').value;
-        if (winCondition === 'custom' && !state.settings.customWinPattern) {
-            alert('Por favor, gere um padrão personalizado antes de salvar.');
-            return;
-        }
-        state.settings.winCondition = winCondition;
-        saveState();
-        renderApp();
-        closeModal('settings-modal');
-    };
-
-    document.getElementById('export-cards-btn').addEventListener('click', () => {
-        if (state.cards.length === 0) {
-            alert('Não há cartelas para exportar.');
-            return;
-        }
-        const today = new Date().toISOString().slice(0, 10);
-        document.getElementById('export-filename-input').value = `bingo_pro_backup_${today}.json`;
-        openModal('export-modal');
-    });
-
-    document.getElementById('export-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        let filename = document.getElementById('export-filename-input').value;
-        if (filename.trim() === '') {
-            const today = new Date().toISOString().slice(0, 10);
-            filename = `bingo_pro_backup_${today}.json`;
-        }
-        if (!filename.toLowerCase().endsWith('.json')) {
-            filename += '.json';
-        }
-        const dataStr = JSON.stringify({ cards: state.cards, drawnNumbers: state.drawnNumbers }, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', filename);
-        linkElement.click();
-        closeModal('export-modal');
-    });
-
-    document.getElementById('import-cards-btn').addEventListener('click', () => document.getElementById('import-file-input').click());
-    document.getElementById('import-file-input').addEventListener('change', (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
+        // --- State Management ---
+        const saveState = () => {
             try {
-                const data = JSON.parse(event.target.result);
-                if (data.cards && Array.isArray(data.cards)) {
-                    showConfirm('Importar Cartelas', `Encontrámos ${data.cards.length} cartelas. Deseja adicioná-las?`, () => {
-                        const existingIds = new Set(state.cards.map(c => c.id));
-                        const uniqueNewCards = data.cards.filter(c => c.id && c.name && c.numbers && !existingIds.has(c.id));
-                        state.cards.push(...uniqueNewCards);
-                        if (data.drawnNumbers && Array.isArray(data.drawnNumbers)) {
-                            state.drawnNumbers = [...new Set([...state.drawnNumbers, ...data.drawnNumbers])];
-                        }
-                        saveState();
-                        renderApp();
-                        alert(`${uniqueNewCards.length} novas cartelas importadas com sucesso!`);
-                    });
-                } else { alert('Arquivo de importação inválido.'); }
-            } catch (err) { alert('Erro ao ler o arquivo.'); console.error(err); } 
-            finally { e.target.value = null; }
-        };
-        reader.readAsText(file);
-    });
-
-    document.getElementById('delete-all-cards-btn').addEventListener('click', () => {
-        showConfirm(
-            'Apagar Todas as Cartelas',
-            'Tem a certeza de que deseja apagar TODAS as cartelas? Esta ação não pode ser desfeita.',
-            () => {
-                state.cards = [];
-                saveState();
-                renderApp();
+                localStorage.setItem('bingoProState', JSON.stringify(state));
+            } catch (error) {
+                console.error("Erro ao salvar o estado:", error);
+                showNotification("Erro ao salvar dados. O armazenamento pode estar cheio.", 'error');
             }
-        );
-    });
-    
-    // --- Lógica Gemini API ---
-    async function callGemini(prompt, schema = null) {
-        const apiKey = ""; 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        
-        let payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
         };
 
-        if (schema) {
-            payload.generationConfig = {
-                responseMimeType: "application/json",
-                responseSchema: schema
-            };
-        }
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.statusText}`);
-            }
-            const result = await response.json();
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                return result.candidates[0].content.parts[0].text;
+        const loadState = () => {
+            const savedState = localStorage.getItem('bingoProState');
+            if (savedState) {
+                state = JSON.parse(savedState);
             } else {
-                throw new Error("Resposta da API inválida.");
+                // Initialize with a clean state, no sample cards.
+                // The default state object is already clean.
+                // We just need to save it to establish the localStorage item.
+                saveState();
             }
-        } catch (error) {
-            console.error("Erro ao chamar a API Gemini:", error);
-            alert("Ocorreu um erro ao comunicar com a IA. Por favor, tente novamente.");
-            return null;
-        }
-    }
-
-    document.getElementById('announcer-btn').addEventListener('click', async () => {
-        const lastNumber = state.drawnNumbers[state.drawnNumbers.length - 1];
-        if (!lastNumber) return;
-
-        const letter = Object.values(BINGO_COLS).find(c => lastNumber >= c.min && lastNumber <= c.max).name;
-        const fullNumber = `${letter}${lastNumber}`;
-        
-        const prompt = `Crie uma chamada curta, divertida e temática para o número de bingo ${fullNumber}. Por exemplo, para B12, você poderia dizer 'B12, uma dúzia de pastéis!'. Seja criativo e breve.`;
-        
-        const announcementText = await callGemini(prompt);
-        if (announcementText) {
-            document.getElementById('announcement-title').textContent = fullNumber;
-            document.getElementById('announcement-text').textContent = announcementText;
-            openModal('announcement-modal');
-        }
-    });
-
-    document.querySelectorAll('input[name="win-condition"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            ui.customPatternSection.style.display = e.target.value === 'custom' ? 'block' : 'none';
-        });
-    });
-
-    function visualizePattern(pattern) {
-        ui.patternVisualizer.innerHTML = '';
-        if (!pattern || pattern.length !== 5) {
-            ui.patternVisualizerContainer.style.display = 'none';
-            return;
-        }
-        pattern.flat().forEach(isMarked => {
-            const cell = document.createElement('div');
-            cell.className = `pattern-cell ${isMarked ? 'bg-blue-600' : 'bg-gray-200'}`;
-            ui.patternVisualizer.appendChild(cell);
-        });
-        ui.patternVisualizerContainer.style.display = 'block';
-    }
-
-    document.getElementById('generate-pattern-btn').addEventListener('click', async () => {
-        const description = document.getElementById('custom-pattern-input').value.trim();
-        if (!description) {
-            alert('Por favor, descreva um padrão.');
-            return;
-        }
-
-        ui.patternLoading.style.display = 'block';
-        ui.patternVisualizerContainer.style.display = 'none';
-
-        const prompt = `Analise a seguinte descrição de um padrão de vitória para um bingo 5x5: "${description}". O centro (índice [2][2]) é sempre um espaço livre e deve ser marcado como 'true'. Retorne uma matriz JSON 5x5 onde cada posição é 'true' se fizer parte do padrão de vitória e 'false' caso contrário.`;
-        const schema = {
-            type: "OBJECT",
-            properties: { "pattern": { type: "ARRAY", items: { type: "ARRAY", items: { type: "BOOLEAN" } } } }
         };
 
-        const resultText = await callGemini(prompt, schema);
-        ui.patternLoading.style.display = 'none';
+        // --- Rendering ---
+        const render = () => {
+            renderDrawnNumbers();
+            renderCards();
+            updateControls();
+        };
 
-        if (resultText) {
-            try {
-                const resultJson = JSON.parse(resultText);
-                if (resultJson.pattern && resultJson.pattern.length === 5) {
-                    state.settings.customWinPattern = resultJson.pattern;
-                    saveState();
-                    visualizePattern(resultJson.pattern);
-                } else {
-                    alert('A IA não conseguiu gerar um padrão válido. Tente uma descrição diferente.');
-                }
-            } catch (e) {
-                console.error("Erro ao analisar o JSON do padrão:", e);
-                alert('Ocorreu um erro ao processar a resposta da IA.');
+        const renderDrawnNumbers = () => {
+            dom.drawnNumbersList.innerHTML = '';
+            dom.drawnCount.textContent = state.drawnNumbers.length;
+
+            const sortedNumbers = [...state.drawnNumbers].sort((a, b) => {
+                return state.settings.sortDrawn === 'asc' ? a - b : b - a;
+            });
+
+            if (sortedNumbers.length === 0) {
+                dom.drawnNumbersList.innerHTML = `<p class="text-center text-gray-500 text-sm">Nenhum número sorteado ainda.</p>`;
+            } else {
+                sortedNumbers.forEach(num => {
+                    const letter = getBingoLetter(num);
+                    const el = document.createElement('div');
+                    el.className = 'bg-white shadow-sm rounded-full w-12 h-12 flex flex-col items-center justify-center font-bold text-gray-700 cursor-pointer hover:bg-red-100 transition';
+                    el.innerHTML = `<div class="text-blue-600 text-xs">${letter}</div><div class="text-lg leading-tight">${num}</div>`;
+                    el.dataset.number = num;
+                    
+                    // Double tap/click to remove
+                    el.addEventListener('dblclick', () => confirmRemoveDrawnNumber(num));
+                    el.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        const currentTime = new Date().getTime();
+                        const tapLength = currentTime - lastDrawnTap;
+                        if (tapLength < 300 && tapLength > 0) {
+                            confirmRemoveDrawnNumber(num);
+                        }
+                        lastDrawnTap = currentTime;
+                    });
+                    dom.drawnNumbersList.appendChild(el);
+                });
             }
-        }
-    });
+        };
 
-    // --- Carga Inicial ---
-    loadState();
-    setupPWA();
-    renderApp();
-});
-</script>
-</body>
-</html>
+        const renderCards = () => {
+            dom.cardsContainer.innerHTML = '';
+            
+            const sortedCards = sortCards([...state.cards]);
+
+            if (sortedCards.length === 0) {
+                dom.noCardsMessage.classList.remove('hidden');
+                dom.deleteAllCardsBtn.classList.add('hidden');
+            } else {
+                dom.noCardsMessage.classList.add('hidden');
+                dom.deleteAllCardsBtn.classList.remove('hidden');
+                sortedCards.forEach(card => {
+                    const cardEl = createCardElement(card);
+                    dom.cardsContainer.appendChild(cardEl);
+                });
+            }
+        };
+        
+        const createCardElement = (card) => {
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'bg-white p-4 rounded-xl shadow-md relative overflow-hidden transition-all duration-300';
+            
+            const markedCount = countMarkedNumbers(card);
+            const isWinner = checkWin(card);
+
+            if (isWinner) {
+                cardWrapper.classList.add('border-4', 'border-yellow-400', 'shadow-2xl');
+                const banner = document.createElement('div');
+                banner.className = 'winner-banner';
+                banner.textContent = 'BINGO!';
+                cardWrapper.appendChild(banner);
+            }
+
+            let cardHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="text-xl font-bold truncate pr-16">${card.name}</h3>
+                        <p class="text-sm text-gray-500">${markedCount} / 24 números marcados</p>
+                    </div>
+                    <div class="absolute top-4 right-4 flex space-x-2">
+                        <button class="edit-card-btn text-gray-500 hover:text-blue-600" data-id="${card.id}"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="delete-card-btn text-gray-500 hover:text-red-600" data-id="${card.id}"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>
+                <div class="bingo-card-grid">
+            `;
+
+            // Headers B-I-N-G-O
+            BINGO_LETTERS.forEach(letter => {
+                cardHTML += `
+                    <div class="bingo-card-header bg-blue-500">
+                        <span class="letter">${letter}</span>
+                        <span class="range">${BINGO_COLS[letter].min}-${BINGO_COLS[letter].max}</span>
+                    </div>
+                `;
+            });
+
+            // Numbers
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const number = card.grid[col][row]; // Transposing for correct render
+                    const isMarked = number === '⭐️' || state.drawnNumbers.includes(number);
+                    const cellClass = isMarked ? 'marked' : 'bg-gray-100 hover:bg-gray-200';
+                    cardHTML += `<div class="bingo-card-cell ${cellClass}" data-number="${number}" data-card-id="${card.id}">${number}</div>`;
+                }
+            }
+
+            cardHTML += `</div>`;
+            cardWrapper.innerHTML += cardHTML;
+            return cardWrapper;
+        };
+
+        const updateControls = () => {
+            // Update sort dropdowns
+            dom.sortCardsBy.value = state.settings.sortCards;
+            dom.sortOrderText.textContent = state.settings.sortDrawn === 'asc' ? 'Crescente' : 'Recente';
+            
+            // Enable/disable export button
+            if (state.cards.length === 0 && state.drawnNumbers.length === 0) {
+                dom.exportBtn.disabled = true;
+                dom.exportBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                dom.exportBtn.disabled = false;
+                dom.exportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        };
+
+        // --- Logic & Event Handlers ---
+        const handleDrawFormSubmit = (e) => {
+            e.preventDefault();
+            const num = parseInt(dom.drawnNumberInput.value);
+            if (!num || num < 1 || num > 75) {
+                showNotification("Por favor, insira um número válido entre 1 e 75.", 'error');
+                return;
+            }
+            if (state.drawnNumbers.includes(num)) {
+                showNotification(`O número ${num} já foi sorteado.`, 'warning');
+                dom.drawnNumberInput.value = '';
+                dom.drawnNumberInput.focus();
+                return;
+            }
+            addDrawnNumber(num);
+            dom.drawnNumberInput.value = '';
+            dom.drawnNumberInput.focus();
+        };
+
+        const addDrawnNumber = (num, showMsg = true) => {
+            if (!state.drawnNumbers.includes(num)) {
+                state.drawnNumbers.push(num);
+                saveState();
+                render();
+                if (showMsg) {
+                    showNotification(`Número ${num} adicionado!`, 'success');
+                }
+            }
+        };
+
+        const removeDrawnNumber = (num) => {
+            state.drawnNumbers = state.drawnNumbers.filter(n => n !== num);
+            saveState();
+            render();
+            showNotification(`Número ${num} removido.`, 'warning');
+      
