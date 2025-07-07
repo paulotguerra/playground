@@ -209,7 +209,7 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- Gemini API Configuration ---
-        // IMPORTANT: To enable the camera feature, get a key from Google AI Studio and paste it here.
+        // IMPORTANTE: Para habilitar o recurso da câmera, obtenha uma chave no Google AI Studio e cole-a aqui.
         const GEMINI_API_KEY = ""; 
 
         // --- Application State ---
@@ -275,9 +275,21 @@
         const loadState = () => {
             const savedState = localStorage.getItem('bingoProState');
             if (savedState) {
-                state = JSON.parse(savedState);
+                try {
+                    const parsedState = JSON.parse(savedState);
+                    // A simple validation to ensure the object has the expected structure
+                    if (parsedState && typeof parsedState.cards !== 'undefined' && typeof parsedState.settings !== 'undefined') {
+                        state = parsedState;
+                    } else {
+                        console.warn("Dados inválidos no localStorage. Iniciando do zero.");
+                        saveState(); // Save a clean, default state
+                    }
+                } catch (error) {
+                    console.error("Não foi possível analisar o estado do localStorage. Iniciando do zero.", error);
+                    saveState(); // Save a clean, default state
+                }
             } else {
-                // Initialize with a clean state, no sample cards.
+                // No state found, initialize a clean one.
                 saveState();
             }
         };
@@ -445,4 +457,694 @@
         const confirmRemoveDrawnNumber = (num) => {
             showConfirmationModal(
                 `Remover número`,
-                `Tem certeza de que deseja remover o número ${num} da lista de sorteados? Isso desmarcará o número em 
+                `Tem certeza de que deseja remover o número ${num} da lista de sorteados? Isso desmarcará o número em todas as cartelas.`,
+                () => removeDrawnNumber(num)
+            );
+        };
+
+        const handleCardNumberDoubleClick = (e) => {
+            const target = e.target.closest('.bingo-card-cell');
+            if (!target) return;
+
+            const numberStr = target.dataset.number;
+            if (numberStr === '⭐️' || numberStr === 'null') return;
+            
+            const number = parseInt(numberStr);
+
+            if (state.drawnNumbers.includes(number)) {
+                confirmRemoveDrawnNumber(number);
+            } else {
+                addDrawnNumber(number, true);
+            }
+        };
+
+        const handleClearDrawn = () => {
+            if (state.drawnNumbers.length === 0) return;
+            showConfirmationModal(
+                'Limpar sorteio',
+                'Tem certeza de que deseja limpar todos os números sorteados? Esta ação não pode ser desfeita.',
+                () => {
+                    state.drawnNumbers = [];
+                    saveState();
+                    render();
+                    showNotification('Sorteio limpo com sucesso!', 'warning');
+                }
+            );
+        };
+
+        const handleSortDrawn = () => {
+            state.settings.sortDrawn = state.settings.sortDrawn === 'asc' ? 'desc' : 'asc';
+            saveState();
+            render();
+        };
+        
+        const handleSortCards = (e) => {
+            state.settings.sortCards = e.target.value;
+            saveState();
+            renderCards();
+        };
+
+        const handleAddCard = () => {
+            showAddCardChoiceModal();
+        };
+
+        const handleEditCard = (cardId) => {
+            const card = state.cards.find(c => c.id === cardId);
+            if (card) {
+                showCardFormModal(card);
+            }
+        };
+
+        const handleDeleteCard = (cardId) => {
+            const card = state.cards.find(c => c.id === cardId);
+            if (!card) return;
+            showConfirmationModal(
+                'Apagar cartela',
+                `Tem certeza de que deseja apagar a cartela "${card.name}"? Esta ação não pode ser desfeita.`,
+                () => {
+                    state.cards = state.cards.filter(c => c.id !== cardId);
+                    saveState();
+                    render();
+                    showNotification(`Cartela "${card.name}" apagada.`, 'warning');
+                }
+            );
+        };
+
+        const handleDeleteAllCards = () => {
+            showConfirmationModal(
+                'Apagar todas as cartelas',
+                'Tem certeza de que deseja apagar TODAS as cartelas? Esta ação é irreversível.',
+                () => {
+                    state.cards = [];
+                    saveState();
+                    render();
+                    showNotification('Todas as cartelas foram apagadas.', 'warning');
+                }
+            );
+        };
+        
+        const handleConfig = () => {
+            showConfigModal();
+        };
+
+        const handleExport = () => {
+            if (dom.exportBtn.disabled) return;
+            showExportModal();
+        };
+
+        const handleImport = () => {
+            dom.importFileInput.click();
+        };
+
+        const handleImportFile = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    if (!importedData.cards || !importedData.drawnNumbers || !importedData.settings) {
+                        throw new Error("Formato de arquivo inválido.");
+                    }
+                    
+                    showConfirmationModal(
+                        'Importar dados',
+                        `Você está prestes a importar ${importedData.cards.length} cartela(s) e ${importedData.drawnNumbers.length} número(s) sorteado(s). Os dados atuais serão mesclados. Deseja continuar?`,
+                        () => {
+                            const existingCardIds = new Set(state.cards.map(c => c.id));
+                            const newCards = importedData.cards.filter(c => !existingCardIds.has(c.id));
+                            state.cards.push(...newCards);
+                            
+                            const existingDrawn = new Set(state.drawnNumbers);
+                            const newDrawn = importedData.drawnNumbers.filter(n => !existingDrawn.has(n));
+                            state.drawnNumbers.push(...newDrawn);
+
+                            state.settings = importedData.settings;
+
+                            saveState();
+                            render();
+                            showNotification('Dados importados com sucesso!', 'success');
+                        }
+                    );
+                } catch (error) {
+                    console.error("Erro ao importar arquivo:", error);
+                    showNotification("Erro ao ler o arquivo. Verifique se é um JSON válido do Bingo Pro.", "error");
+                } finally {
+                    e.target.value = null;
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        const handleCameraFileSelect = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64Image = event.target.result.split(',')[1];
+                processImageWithGemini(base64Image);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = null; // Reset input to allow selecting the same file again
+        };
+
+        // --- Modal Functions ---
+        const closeModal = () => {
+            dom.modalContainer.innerHTML = '';
+        };
+
+        const showModal = (content) => {
+            const modalBackdrop = document.createElement('div');
+            modalBackdrop.className = 'modal-backdrop';
+            modalBackdrop.addEventListener('click', (e) => {
+                if (e.target === modalBackdrop) {
+                    closeModal();
+                }
+            });
+
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            modalContent.innerHTML = content;
+
+            modalBackdrop.appendChild(modalContent);
+            dom.modalContainer.appendChild(modalBackdrop);
+            return modalContent;
+        };
+        
+        const showConfirmationModal = (title, message, onConfirm) => {
+            const content = `
+                <h3 class="text-xl font-bold mb-4">${title}</h3>
+                <p class="mb-6">${message}</p>
+                <div class="flex justify-end gap-3">
+                    <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                    <button id="modal-confirm-btn" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600">Confirmar</button>
+                </div>
+            `;
+            const modal = showModal(content);
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', closeModal);
+            modal.querySelector('#modal-confirm-btn').addEventListener('click', () => {
+                onConfirm();
+                closeModal();
+            });
+        };
+
+        const showAddCardChoiceModal = () => {
+            const content = `
+                <h3 class="text-xl font-bold mb-4">Adicionar nova cartela</h3>
+                <p class="mb-6">Como você gostaria de adicionar a cartela?</p>
+                <div class="flex flex-col gap-4">
+                    <button id="manual-add-btn" class="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2"><i class="fa-solid fa-keyboard"></i> Preenchimento manual</button>
+                    <button id="camera-add-btn" class="w-full bg-teal-500 text-white font-bold py-3 rounded-lg hover:bg-teal-600 transition flex items-center justify-center gap-2"><i class="fa-solid fa-camera"></i> Usar a câmera</button>
+                </div>
+                 <div class="mt-6 flex justify-end">
+                    <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                </div>
+            `;
+            const modal = showModal(content);
+            modal.querySelector('#manual-add-btn').addEventListener('click', () => {
+                closeModal();
+                showCardFormModal();
+            });
+            modal.querySelector('#camera-add-btn').addEventListener('click', () => {
+                if (!GEMINI_API_KEY) {
+                    showNotification("Função indisponível: a chave da API do Gemini não foi configurada.", "error");
+                    return;
+                }
+                closeModal();
+                dom.cameraInput.click();
+            });
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', closeModal);
+        };
+
+        const showCardFormModal = (cardToEdit = null) => {
+            const isEditing = cardToEdit !== null;
+            const title = isEditing ? 'Editar cartela' : 'Nova cartela';
+            
+            let gridInputs = '';
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const value = isEditing && cardToEdit.grid[col] && cardToEdit.grid[col][row] ? (cardToEdit.grid[col][row] === '⭐️' ? '' : cardToEdit.grid[col][row]) : '';
+                    const dataAttrs = `data-col="${col}" data-row="${row}"`;
+                    gridInputs += `<input type="number" min="1" max="75" placeholder="" value="${value}" ${dataAttrs} class="card-grid-input w-full aspect-square text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">`;
+                }
+            }
+
+            const modalHeaders = BINGO_LETTERS.map(letter => `
+                <div class="bingo-card-header bg-blue-500">
+                    <span class="letter">${letter}</span>
+                    <span class="range">${BINGO_COLS[letter].min}-${BINGO_COLS[letter].max}</span>
+                </div>
+            `).join('');
+
+            const content = `
+                <form id="card-form">
+                    <h3 class="text-xl font-bold mb-4 flex justify-between items-center">${title} <i class="fa-solid fa-camera text-gray-400 hover:text-blue-500 cursor-pointer" id="form-camera-btn"></i></h3>
+                    <div class="mb-4">
+                        <label for="card-name" class="block font-medium mb-1">Nome da cartela</label>
+                        <input type="text" id="card-name" required value="${isEditing ? cardToEdit.name : ''}" placeholder="Ex: Cartela da Sorte" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div class="bingo-card-grid mb-4">
+                        ${modalHeaders}
+                        ${gridInputs}
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" class="bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600">Salvar</button>
+                    </div>
+                </form>
+            `;
+            const modal = showModal(content);
+            const form = modal.querySelector('#card-form');
+            const inputs = Array.from(modal.querySelectorAll('.card-grid-input'));
+            
+            inputs.forEach((input) => {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const col = parseInt(input.dataset.col);
+                        const row = parseInt(input.dataset.row);
+
+                        if (row < 4) {
+                            const nextInput = inputs.find(i => parseInt(i.dataset.col) === col && parseInt(i.dataset.row) === row + 1);
+                            nextInput?.focus();
+                        } else if (col < 4) {
+                            const nextInput = inputs.find(i => parseInt(i.dataset.col) === col + 1 && parseInt(i.dataset.row) === 0);
+                            nextInput?.focus();
+                        } else {
+                            form.querySelector('button[type="submit"]').focus();
+                        }
+                    }
+                });
+            });
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = modal.querySelector('#card-name').value.trim();
+                if (!name) {
+                    showNotification("O nome da cartela é obrigatório.", "error");
+                    return;
+                }
+
+                const grid = [[], [], [], [], []];
+                const allNumbers = new Set();
+                let isValid = true;
+                let hasError = false;
+
+                inputs.forEach(input => {
+                    const col = parseInt(input.dataset.col);
+                    const row = parseInt(input.dataset.row);
+                    const isCenter = col === 2 && row === 2;
+                    let value = input.value.trim();
+
+                    if (isCenter && value === '') {
+                        grid[col][row] = '⭐️';
+                        return;
+                    }
+                    
+                    const num = parseInt(value);
+                    if (!value || isNaN(num)) {
+                        isValid = false;
+                        input.classList.add('border-red-500');
+                        hasError = true;
+                        return;
+                    }
+
+                    const letter = BINGO_LETTERS[col];
+                    const range = BINGO_COLS[letter];
+                    if (num < range.min || num > range.max) {
+                        isValid = false;
+                        input.classList.add('border-red-500');
+                        showNotification(`Número ${num} na coluna ${letter} está fora do intervalo (${range.min}-${range.max}).`, 'error');
+                        hasError = true;
+                        return;
+                    }
+
+                    if (allNumbers.has(num)) {
+                        isValid = false;
+                        input.classList.add('border-red-500');
+                        showNotification(`Número duplicado: ${num}.`, 'error');
+                        hasError = true;
+                        return;
+                    }
+                    
+                    input.classList.remove('border-red-500');
+                    allNumbers.add(num);
+                    grid[col][row] = num;
+                });
+                
+                if (allNumbers.size < 24) {
+                    showNotification("Preencha todos os campos da cartela (exceto o central).", "error");
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    if(!hasError) showNotification("Verifique os números da cartela. Há campos vazios, duplicados ou fora do intervalo.", "error");
+                    return;
+                }
+
+                if (isEditing) {
+                    const cardIndex = state.cards.findIndex(c => c.id === cardToEdit.id);
+                    state.cards[cardIndex] = { ...cardToEdit, name, grid };
+                    showNotification("Cartela atualizada com sucesso!", "success");
+                } else {
+                    state.cards.push({ id: Date.now(), name, grid });
+                    showNotification("Cartela salva com sucesso!", "success");
+                }
+                
+                saveState();
+                render();
+                closeModal();
+            });
+
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', closeModal);
+            modal.querySelector('#form-camera-btn').addEventListener('click', () => {
+                if (!GEMINI_API_KEY) {
+                    showNotification("Função indisponível: a chave da API do Gemini não foi configurada.", "error");
+                    return;
+                }
+                closeModal();
+                dom.cameraInput.click();
+            });
+        };
+        
+        const showConfigModal = () => {
+            const content = `
+                <h3 class="text-xl font-bold mb-4">Configurações de vitória</h3>
+                <p class="mb-4 text-gray-600">Escolha a condição para um "BINGO!".</p>
+                <div class="space-y-3">
+                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="win-condition" value="full" class="h-5 w-5 text-blue-600 focus:ring-blue-500" ${state.settings.winCondition === 'full' ? 'checked' : ''}>
+                        <span class="ml-3 text-gray-700 font-medium">Cheia (marcar todos os números)</span>
+                    </label>
+                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="win-condition" value="corners" class="h-5 w-5 text-blue-600 focus:ring-blue-500" ${state.settings.winCondition === 'corners' ? 'checked' : ''}>
+                        <span class="ml-3 text-gray-700 font-medium">Quinas (linhas, colunas, diagonais)</span>
+                    </label>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                    <button id="modal-save-btn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">Salvar</button>
+                </div>
+            `;
+            const modal = showModal(content);
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', closeModal);
+            modal.querySelector('#modal-save-btn').addEventListener('click', () => {
+                const selected = modal.querySelector('input[name="win-condition"]:checked').value;
+                state.settings.winCondition = selected;
+                saveState();
+                render();
+                closeModal();
+                showNotification("Configurações salvas!", "info");
+            });
+        };
+        
+        const showExportModal = () => {
+            const defaultName = `bingo-pro_backup_${new Date().toISOString().slice(0,10)}.json`;
+            const content = `
+                <h3 class="text-xl font-bold mb-4">Exportar dados</h3>
+                <p class="mb-4">Seus dados (cartelas e números sorteados) serão salvos em um arquivo JSON. Guarde-o em um local seguro.</p>
+                <div class="mb-4">
+                    <label for="export-filename" class="block font-medium mb-1">Nome do arquivo</label>
+                    <input type="text" id="export-filename" value="${defaultName}" class="w-full p-2 border border-gray-300 rounded-lg">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                    <button id="modal-export-btn" class="bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600">Exportar</button>
+                </div>
+            `;
+            const modal = showModal(content);
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', closeModal);
+            modal.querySelector('#modal-export-btn').addEventListener('click', () => {
+                const filename = modal.querySelector('#export-filename').value || defaultName;
+                const dataStr = JSON.stringify(state, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                closeModal();
+                showNotification("Dados exportados com sucesso!", "success");
+            });
+        };
+
+        const showProcessingModal = () => {
+            const content = `
+                <div id="gemini-processing-modal" class="text-center">
+                    <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin-slow mx-auto mb-6"></div>
+                    <h3 class="text-xl font-bold mb-2">Processando...</h3>
+                    <p class="text-gray-600 mb-6">Aguarde enquanto a imagem é processada pelo Gemini. Lembre-se de conferir os valores antes de cadastrar a cartela.</p>
+                    <button id="modal-cancel-btn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                </div>
+            `;
+            const modal = showModal(content);
+            modal.querySelector('#modal-cancel-btn').addEventListener('click', () => {
+                closeModal();
+            });
+        };
+
+        // --- Helper Functions ---
+        const getBingoLetter = (number) => {
+            for (const letter in BINGO_COLS) {
+                if (number >= BINGO_COLS[letter].min && number <= BINGO_COLS[letter].max) {
+                    return letter;
+                }
+            }
+            return '?';
+        };
+
+        const countMarkedNumbers = (card) => {
+            let count = 0;
+            card.grid.flat().forEach(num => {
+                if (num !== '⭐️' && state.drawnNumbers.includes(num)) {
+                    count++;
+                }
+            });
+            return count;
+        };
+
+        const sortCards = (cards) => {
+            return cards.sort((a, b) => {
+                if (state.settings.sortCards === 'alpha') {
+                    return a.name.localeCompare(b.name);
+                } else { // 'marked'
+                    const markedA = countMarkedNumbers(a);
+                    const markedB = countMarkedNumbers(b);
+                    return markedB - markedA;
+                }
+            });
+        };
+
+        const checkWin = (card) => {
+            const isMarked = (row, col) => {
+                const val = card.grid[col][row];
+                return val === '⭐️' || state.drawnNumbers.includes(val);
+            };
+
+            const checkLine = (line) => line.every(cell => isMarked(cell.row, cell.col));
+
+            const lines = [];
+            for (let i = 0; i < 5; i++) {
+                const row = [];
+                const col = [];
+                for (let j = 0; j < 5; j++) {
+                    row.push({ row: i, col: j });
+                    col.push({ row: j, col: i });
+                }
+                lines.push(row, col);
+            }
+            const diag1 = [];
+            const diag2 = [];
+            for (let i = 0; i < 5; i++) {
+                diag1.push({ row: i, col: i });
+                diag2.push({ row: i, col: 4 - i });
+            }
+            lines.push(diag1, diag2);
+
+            if (state.settings.winCondition === 'corners') {
+                return lines.some(line => checkLine(line));
+            } else { // 'full'
+                for (let i = 0; i < 5; i++) {
+                    for (let j = 0; j < 5; j++) {
+                        if (!isMarked(i, j)) return false;
+                    }
+                }
+                return true;
+            }
+        };
+
+        const showNotification = (message, type = 'info') => {
+            const notification = document.createElement('div');
+            let bgColor, iconClass;
+            switch (type) {
+                case 'success': bgColor = 'bg-green-500'; iconClass = 'fa-check-circle'; break;
+                case 'error': bgColor = 'bg-red-500'; iconClass = 'fa-times-circle'; break;
+                case 'warning': bgColor = 'bg-orange-500'; iconClass = 'fa-exclamation-triangle'; break;
+                default: bgColor = 'bg-blue-500'; iconClass = 'fa-info-circle'; break;
+            }
+            
+            notification.className = `pointer-events-auto max-w-sm w-full ${bgColor} text-white py-3 px-5 rounded-lg shadow-xl transform -translate-y-20 opacity-0 transition-all duration-500 ease-in-out flex items-center gap-3`;
+            notification.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${message}</span>`;
+            
+            dom.notificationContainer.appendChild(notification);
+
+            requestAnimationFrame(() => {
+                notification.classList.remove('-translate-y-20', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                notification.classList.add('-translate-y-20', 'opacity-0');
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 3000);
+        };
+
+        // --- Gemini API Integration ---
+        const processImageWithGemini = async (base64ImageData) => {
+            showProcessingModal();
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+            const prompt = `Analise a imagem desta cartela de bingo. Sua tarefa é extrair todos os números e sua posição exata na grade 5x5. Retorne um objeto JSON bem-formado com uma única chave chamada "grid". O valor de "grid" deve ser um array de 5 arrays (representando as 5 linhas da cartela, de cima para baixo). Cada um desses 5 arrays deve conter 5 elementos (representando as 5 colunas, da esquerda para a direita). Os elementos devem ser os números inteiros lidos da cartela. Se uma célula estiver vazia, for o espaço livre central, ou se um número não puder ser lido com clareza naquela posição, use o valor null. Não inclua nenhum texto explicativo, comentários ou markdown na sua resposta. Apenas o objeto JSON. Exemplo do formato de resposta esperado: {"grid": [[1,16,31,46,61],[2,17,32,47,62],[3,18,null,48,63],[4,19,34,49,64],[5,20,35,50,65]]}`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { inline_data: { mime_type: "image/jpeg", data: base64ImageData } }
+                    ]
+                }]
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("Erro da API Gemini:", errorData);
+                    throw new Error(`Erro na API: ${errorData.error?.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                const textResponse = result.candidates[0].content.parts[0].text;
+                
+                const jsonString = textResponse.match(/{[\s\S]*}/)[0];
+                const parsedJson = JSON.parse(jsonString);
+
+                if (!parsedJson.grid || parsedJson.grid.length !== 5) {
+                    throw new Error("Resposta da API em formato inesperado.");
+                }
+
+                const transposedGrid = parsedJson.grid[0].map((_, colIndex) => parsedJson.grid.map(row => row[colIndex]));
+
+                const cardData = {
+                    id: null,
+                    name: `Cartela da câmera ${new Date().toLocaleTimeString()}`,
+                    grid: transposedGrid.map(col => col.map(cell => cell === null ? '' : cell))
+                };
+                
+                closeModal();
+                showCardFormModal(cardData);
+
+            } catch (error) {
+                console.error("Falha ao processar imagem:", error);
+                closeModal();
+                showNotification("Não foi possível ler a cartela. Tente uma foto mais nítida.", "error");
+            }
+        };
+
+        // --- PWA Manifest Generation ---
+        const generateIcon = (size) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('B', size / 2, size / 2 + size * 0.04);
+
+            return canvas.toDataURL('image/png');
+        };
+
+        const setupPWA = () => {
+            const manifest = {
+                "name": "Bingo Pro",
+                "short_name": "Bingo Pro",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f0f2f5",
+                "theme_color": "#3b82f6",
+                "description": "Seu gestor de cartelas de bingo que funciona offline.",
+                "icons": [
+                    { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" },
+                    { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestURL;
+            document.head.appendChild(link);
+        };
+
+        // --- Initialization ---
+        const init = () => {
+            dom.drawForm.addEventListener('submit', handleDrawFormSubmit);
+            dom.clearDrawnBtn.addEventListener('click', handleClearDrawn);
+            dom.sortDrawnBtn.addEventListener('click', handleSortDrawn);
+            dom.addCardBtn.addEventListener('click', handleAddCard);
+            dom.configBtn.addEventListener('click', handleConfig);
+            dom.exportBtn.addEventListener('click', handleExport);
+            dom.importBtn.addEventListener('click', handleImport);
+            dom.importFileInput.addEventListener('change', handleImportFile);
+            dom.cameraInput.addEventListener('change', handleCameraFileSelect);
+            dom.deleteAllCardsBtn.addEventListener('click', handleDeleteAllCards);
+            dom.sortCardsBy.addEventListener('change', handleSortCards);
+
+            dom.cardsContainer.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-card-btn')) {
+                    const id = parseInt(e.target.closest('.delete-card-btn').dataset.id);
+                    handleDeleteCard(id);
+                } else if (e.target.closest('.edit-card-btn')) {
+                    const id = parseInt(e.target.closest('.edit-card-btn').dataset.id);
+                    handleEditCard(id);
+                }
+            });
+            
+            dom.cardsContainer.addEventListener('touchend', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastCardTap;
+                if (tapLength < 300 && tapLength > 0) {
+                    e.preventDefault();
+                    handleCardNumberDoubleClick(e);
+                }
+                lastCardTap = currentTime;
+            });
+            dom.cardsContainer.addEventListener('dblclick', handleCardNumberDoubleClick);
+
+            loadState();
+            setupPWA();
+            render();
+        };
+
+        init();
+    });
+    </script>
+</body>
+</html>
