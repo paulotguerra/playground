@@ -206,9 +206,11 @@
     <input type="file" id="camera-input" class="hidden" accept="image/*" capture="environment">
 
     <!-- JavaScript -->
-    <script type="module">
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
         // --- Gemini API Configuration ---
-        const GEMINI_API_KEY = ""; // Provided by the environment
+        // IMPORTANT: To enable the camera feature, get a key from Google AI Studio and paste it here.
+        const GEMINI_API_KEY = ""; 
 
         // --- Application State ---
         let state = {
@@ -276,8 +278,6 @@
                 state = JSON.parse(savedState);
             } else {
                 // Initialize with a clean state, no sample cards.
-                // The default state object is already clean.
-                // We just need to save it to establish the localStorage item.
                 saveState();
             }
         };
@@ -307,7 +307,6 @@
                     el.innerHTML = `<div class="text-blue-600 text-xs">${letter}</div><div class="text-lg leading-tight">${num}</div>`;
                     el.dataset.number = num;
                     
-                    // Double tap/click to remove
                     el.addEventListener('dblclick', () => confirmRemoveDrawnNumber(num));
                     el.addEventListener('touchend', (e) => {
                         e.preventDefault();
@@ -370,7 +369,6 @@
                 <div class="bingo-card-grid">
             `;
 
-            // Headers B-I-N-G-O
             BINGO_LETTERS.forEach(letter => {
                 cardHTML += `
                     <div class="bingo-card-header bg-blue-500">
@@ -380,10 +378,9 @@
                 `;
             });
 
-            // Numbers
             for (let row = 0; row < 5; row++) {
                 for (let col = 0; col < 5; col++) {
-                    const number = card.grid[col][row]; // Transposing for correct render
+                    const number = card.grid[col][row];
                     const isMarked = number === '⭐️' || state.drawnNumbers.includes(number);
                     const cellClass = isMarked ? 'marked' : 'bg-gray-100 hover:bg-gray-200';
                     cardHTML += `<div class="bingo-card-cell ${cellClass}" data-number="${number}" data-card-id="${card.id}">${number}</div>`;
@@ -396,11 +393,9 @@
         };
 
         const updateControls = () => {
-            // Update sort dropdowns
             dom.sortCardsBy.value = state.settings.sortCards;
             dom.sortOrderText.textContent = state.settings.sortDrawn === 'asc' ? 'Crescente' : 'Recente';
             
-            // Enable/disable export button
             if (state.cards.length === 0 && state.drawnNumbers.length === 0) {
                 dom.exportBtn.disabled = true;
                 dom.exportBtn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -445,4 +440,9 @@
             saveState();
             render();
             showNotification(`Número ${num} removido.`, 'warning');
-      
+        };
+
+        const confirmRemoveDrawnNumber = (num) => {
+            showConfirmationModal(
+                `Remover número`,
+                `Tem certeza de que deseja remover o número ${num} da lista de sorteados? Isso desmarcará o número em 
