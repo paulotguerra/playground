@@ -277,19 +277,17 @@
             if (savedState) {
                 try {
                     const parsedState = JSON.parse(savedState);
-                    // A simple validation to ensure the object has the expected structure
                     if (parsedState && typeof parsedState.cards !== 'undefined' && typeof parsedState.settings !== 'undefined') {
                         state = parsedState;
                     } else {
                         console.warn("Dados inválidos no localStorage. Iniciando do zero.");
-                        saveState(); // Save a clean, default state
+                        saveState();
                     }
                 } catch (error) {
                     console.error("Não foi possível analisar o estado do localStorage. Iniciando do zero.", error);
-                    saveState(); // Save a clean, default state
+                    saveState();
                 }
             } else {
-                // No state found, initialize a clean one.
                 saveState();
             }
         };
@@ -367,11 +365,14 @@
                 cardWrapper.appendChild(banner);
             }
 
+            // NEW: Determine if the card has 24 or 25 numbers.
+            const totalNumbers = card.grid.flat().includes('⭐️') ? 24 : 25;
+
             let cardHTML = `
                 <div class="flex justify-between items-start mb-3">
                     <div>
                         <h3 class="text-xl font-bold truncate pr-16">${card.name}</h3>
-                        <p class="text-sm text-gray-500">${markedCount} / 24 números marcados</p>
+                        <p class="text-sm text-gray-500">${markedCount} / ${totalNumbers} números marcados</p>
                     </div>
                     <div class="absolute top-4 right-4 flex space-x-2">
                         <button class="edit-card-btn text-gray-500 hover:text-blue-600" data-id="${card.id}"><i class="fas fa-pencil-alt"></i></button>
@@ -607,7 +608,7 @@
                 processImageWithGemini(base64Image);
             };
             reader.readAsDataURL(file);
-            e.target.value = null; // Reset input to allow selecting the same file again
+            e.target.value = null;
         };
 
         // --- Modal Functions ---
@@ -718,30 +719,53 @@
             const modal = showModal(content);
             const form = modal.querySelector('#card-form');
             const inputs = Array.from(modal.querySelectorAll('.card-grid-input'));
+            const cardNameInput = modal.querySelector('#card-name');
+            const saveButton = form.querySelector('button[type="submit"]');
             
+            cardNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                    e.preventDefault();
+                    inputs.find(i => parseInt(i.dataset.col) === 0 && parseInt(i.dataset.row) === 0)?.focus();
+                }
+            });
+
             inputs.forEach((input) => {
                 input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const col = parseInt(input.dataset.col);
-                        const row = parseInt(input.dataset.row);
+                    const col = parseInt(input.dataset.col);
+                    const row = parseInt(input.dataset.row);
 
+                    if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                        e.preventDefault();
                         if (row < 4) {
-                            const nextInput = inputs.find(i => parseInt(i.dataset.col) === col && parseInt(i.dataset.row) === row + 1);
-                            nextInput?.focus();
+                            inputs.find(i => parseInt(i.dataset.col) === col && parseInt(i.dataset.row) === row + 1)?.focus();
                         } else if (col < 4) {
-                            const nextInput = inputs.find(i => parseInt(i.dataset.col) === col + 1 && parseInt(i.dataset.row) === 0);
-                            nextInput?.focus();
+                            inputs.find(i => parseInt(i.dataset.col) === col + 1 && parseInt(i.dataset.row) === 0)?.focus();
                         } else {
-                            form.querySelector('button[type="submit"]').focus();
+                            saveButton.focus();
+                        }
+                    } else if (e.key === 'Tab' && e.shiftKey) {
+                        e.preventDefault();
+                        if (row > 0) {
+                            inputs.find(i => parseInt(i.dataset.col) === col && parseInt(i.dataset.row) === row - 1)?.focus();
+                        } else if (col > 0) {
+                            inputs.find(i => parseInt(i.dataset.col) === col - 1 && parseInt(i.dataset.row) === 4)?.focus();
+                        } else {
+                            cardNameInput.focus();
                         }
                     }
                 });
             });
+            
+            saveButton.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab' && e.shiftKey) {
+                    e.preventDefault();
+                    inputs.find(i => parseInt(i.dataset.col) === 4 && parseInt(i.dataset.row) === 4)?.focus();
+                }
+            });
 
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const name = modal.querySelector('#card-name').value.trim();
+                const name = cardNameInput.value.trim();
                 if (!name) {
                     showNotification("O nome da cartela é obrigatório.", "error");
                     return;
@@ -749,10 +773,13 @@
 
                 const grid = [[], [], [], [], []];
                 const allNumbers = new Set();
-                let isValid = true;
-                let hasError = false;
+                let hasValidationError = false;
+                
+                inputs.forEach(input => input.classList.remove('border-red-500'));
 
                 inputs.forEach(input => {
+                    if (hasValidationError) return;
+
                     const col = parseInt(input.dataset.col);
                     const row = parseInt(input.dataset.row);
                     const isCenter = col === 2 && row === 2;
@@ -763,44 +790,46 @@
                         return;
                     }
                     
-                    const num = parseInt(value);
-                    if (!value || isNaN(num)) {
-                        isValid = false;
+                    if (!value) {
+                        hasValidationError = true;
                         input.classList.add('border-red-500');
-                        hasError = true;
+                        return;
+                    }
+                    
+                    const num = parseInt(value);
+                    if (isNaN(num)) {
+                        hasValidationError = true;
+                        input.classList.add('border-red-500');
                         return;
                     }
 
                     const letter = BINGO_LETTERS[col];
                     const range = BINGO_COLS[letter];
                     if (num < range.min || num > range.max) {
-                        isValid = false;
+                        hasValidationError = true;
                         input.classList.add('border-red-500');
                         showNotification(`Número ${num} na coluna ${letter} está fora do intervalo (${range.min}-${range.max}).`, 'error');
-                        hasError = true;
                         return;
                     }
 
                     if (allNumbers.has(num)) {
-                        isValid = false;
+                        hasValidationError = true;
                         input.classList.add('border-red-500');
                         showNotification(`Número duplicado: ${num}.`, 'error');
-                        hasError = true;
                         return;
                     }
                     
-                    input.classList.remove('border-red-500');
                     allNumbers.add(num);
                     grid[col][row] = num;
                 });
-                
-                if (allNumbers.size < 24) {
-                    showNotification("Preencha todos os campos da cartela (exceto o central).", "error");
-                    isValid = false;
-                }
 
-                if (!isValid) {
-                    if(!hasError) showNotification("Verifique os números da cartela. Há campos vazios, duplicados ou fora do intervalo.", "error");
+                const hasFreeSpace = grid.flat().includes('⭐️');
+                const requiredNumbers = hasFreeSpace ? 24 : 25;
+
+                if (hasValidationError || allNumbers.size < requiredNumbers) {
+                    if (!hasValidationError) {
+                         showNotification(`Preencha todos os ${requiredNumbers} campos da cartela.`, "error");
+                    }
                     return;
                 }
 
