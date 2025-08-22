@@ -224,6 +224,80 @@
         const lgpdModal = document.getElementById('lgpd-modal');
         const dropdownMenu = document.getElementById('dropdown-menu');
 
+        // --- Lógica de Instalação do PWA ---
+        let deferredPrompt;
+        const installButton = document.getElementById('install-pwa-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installButton.classList.remove('hidden');
+        });
+
+        installButton.addEventListener('click', async () => {
+            installButton.classList.add('hidden');
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
+        
+        // --- PWA Manifest Generation ---
+        const generateIcon = (size) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#166534'; // Cor verde principal da aplicação
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Q', size / 2, size / 2 + size * 0.04);
+
+            return canvas.toDataURL('image/png');
+        };
+
+        const setupPWA = () => {
+            const manifest = {
+                "name": "Censo Agropecuário",
+                "short_name": "Agro Censo",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f3f4f6", // Cor de fundo da aplicação (bg-gray-100)
+                "theme_color": "#166534", // Cor verde principal da aplicação
+                "description": "Censo Agropecuário – Município de Quixadá (2025)",
+                "icons": [
+                    { "src": generateIcon(192), "sizes": "192x192", "type": "image/png" },
+                    { "src": generateIcon(512), "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestURL;
+            document.head.appendChild(link);
+
+            const appleIcon = document.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            appleIcon.href = generateIcon(192);
+            document.head.appendChild(appleIcon);
+        };
+
         const normalizeText = (text) => {
             if (typeof text !== 'string') return text;
             return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -575,6 +649,7 @@
         loadRecords();
         renderRecords();
         setupEventListeners();
+        setupPWA();
     });
     </script>
     
