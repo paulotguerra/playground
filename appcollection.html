@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UFC Quixadá Apps</title>
+
+    <!-- Meta tags for PWA -->
+    <meta name="theme-color" content="#111827"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="UFCQx Apps">
+    <meta name="description" content="Hub de aplicativos web desenvolvidos no âmbito da UFC Quixadá.">
+    
+    <link rel="manifest" id="manifest">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/0284c7/FFFFFF?text=UFCQx">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        .line-clamp-2 {
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans antialiased overflow-x-hidden">
+
+    <!-- Side Panel -->
+    <div id="side-panel" class="fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-800 shadow-xl z-[60] transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+            <h2 class="font-bold text-lg text-gray-900 dark:text-white">Menu</h2>
+            <button id="close-menu-btn" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <nav class="p-4 flex flex-col gap-2">
+            <a href="#" class="menu-category-link flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-category="Todos">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span>Início</span>
+            </a>
+            <a href="#" class="menu-link-modal flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-modal-target="sobre">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <span>Sobre</span>
+            </a>
+             <a href="#" class="menu-link-modal flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-modal-target="config">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <span>Configurações</span>
+            </a>
+            <hr class="my-2 border-gray-200 dark:border-gray-700">
+            <h3 class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categorias</h3>
+            <div id="side-panel-categories" class="flex flex-col gap-1">
+                <!-- Categories will be injected here -->
+            </div>
+        </nav>
+    </div>
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out"></div>
+
+    <!-- Main Modal -->
+    <div id="main-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div id="modal-overlay-bg" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div id="modal-panel" class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md m-4 transform transition-all opacity-0 scale-95">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="modal-title" class="text-lg font-semibold text-gray-900 dark:text-white"></h3>
+                <button id="modal-close-btn" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div id="modal-content" class="p-6 text-gray-600 dark:text-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- Main App Content -->
+    <div id="app" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <header class="flex items-center mb-6 gap-3">
+            <button id="open-menu-btn" class="p-2 -ml-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors sm:hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <div class="bg-sky-600 p-2 rounded-lg shadow-lg">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7"height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">UFC Quixadá <span class="text-sky-500">Apps</span></h1>
+        </header>
+
+        <div class="mb-8 flex justify-center">
+            <div class="relative w-full max-w-md">
+                <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input id="search-input" type="text" placeholder="Buscar por nome ou descrição..." class="w-full pl-11 pr-4 py-2 text-base bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+        </div>
+
+        <section id="all-apps-section">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                <h2 class="text-xl font-bold">Todos os Aplicativos</h2>
+                <div class="flex items-center gap-2">
+                    <div class="relative" id="filter-container">
+                        <button id="filter-btn" class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <span id="filter-btn-text">Filtrar por Categoria</span>
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        <div id="filter-dropdown" class="hidden absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
+                            <div class="py-1" role="menu" aria-orientation="vertical"></div>
+                        </div>
+                    </div>
+                     <div class="relative" id="sort-container">
+                        <button id="sort-btn" class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                           <span id="sort-btn-text">Ordenar</span>
+                           <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        <div id="sort-dropdown" class="hidden absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
+                            <div class="py-1" role="menu" aria-orientation="vertical">
+                                <a href="#" class="sort-option block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" data-sort="az">Nome (A-Z)</a>
+                                <a href="#" class="sort-option block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" data-sort="za">Nome (Z-A)</a>
+                                <a href="#" class="sort-option block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" data-sort="newest">Mais Recentes</a>
+                                <a href="#" class="sort-option block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" data-sort="oldest">Mais Antigos</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="apps-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"></div>
+            <div id="no-results" class="hidden text-center py-10 col-span-full">
+                <p class="text-lg text-gray-500">Nenhum aplicativo encontrado.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const appData = [
+            { id: 1, name: "SIGAA Mobile", description: "Acesso rápido ao sistema acadêmico unificado da UFC.", category: "Acadêmico", url: "https://si3.ufc.br/sigaa/", iconUrl: "https://placehold.co/128x128/0284c7/FFFFFF?text=SIGAA", publishedDate: "2023-03-15" },
+            { id: 2, name: "RU Card", description: "Gerencie seu cartão do Restaurante Universitário.", category: "Utilidades", url: "#", iconUrl: "https://placehold.co/128x128/16a34a/FFFFFF?text=RU", publishedDate: "2022-11-01" },
+            { id: 3, name: "Biblioteca", description: "Acesse o acervo, renove empréstimos e faça reservas.", category: "Acadêmico", url: "https://biblioteca.ufc.br/", iconUrl: "https://placehold.co/128x128/7c3aed/FFFFFF?text=Livros", publishedDate: "2023-01-20" },
+            { id: 4, name: "Portal do Aluno", description: "Notas, faltas e informações acadêmicas consolidadas.", category: "Acadêmico", url: "#", iconUrl: "https://placehold.co/128x128/db2777/FFFFFF?text=Portal", publishedDate: "2023-08-05" },
+            { id: 5, name: "Eventos UFC", description: "Fique por dentro dos eventos, palestras e workshops.", category: "Comunidade", url: "#", iconUrl: "https://placehold.co/128x128/ea580c/FFFFFF?text=Eventos", publishedDate: "2024-02-10" },
+            { id: 6, name: "Mapa do Campus", description: "Encontre salas, blocos e laboratórios no campus.", category: "Utilidades", url: "#", iconUrl: "https://placehold.co/128x128/ca8a04/FFFFFF?text=Mapa", publishedDate: "2021-05-22" },
+            { id: 7, name: "Git UFCx", description: "Plataforma de versionamento de código para projetos.", category: "Desenvolvimento", url: "#", iconUrl: "https://placehold.co/128x128/1f2937/FFFFFF?text=Git", publishedDate: "2024-03-01" },
+            { id: 8, name: "Ouvidoria", description: "Canal direto para sugestões, críticas e elogios.", category: "Comunidade", url: "#", iconUrl: "https://placehold.co/128x128/64748b/FFFFFF?text=Help", publishedDate: "2022-09-18" },
+            { id: 9, name: "Projetos de Extensão", description: "Encontre e participe de projetos de extensão da UFC.", category: "Extensão", url: "#", iconUrl: "https://placehold.co/128x128/f43f5e/FFFFFF?text=EXT", publishedDate: "2024-01-15" }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Elements ---
+            const appsGrid = document.getElementById('apps-grid');
+            const searchInput = document.getElementById('search-input');
+            const noResults = document.getElementById('no-results');
+            const openMenuBtn = document.getElementById('open-menu-btn');
+            const closeMenuBtn = document.getElementById('close-menu-btn');
+            const sidePanel = document.getElementById('side-panel');
+            const overlay = document.getElementById('overlay');
+            const filterBtn = document.getElementById('filter-btn');
+            const filterDropdown = document.getElementById('filter-dropdown');
+            const sortBtn = document.getElementById('sort-btn');
+            const sortDropdown = document.getElementById('sort-dropdown');
+            const sidePanelCategoriesContainer = document.getElementById('side-panel-categories');
+            const modal = document.getElementById('main-modal');
+            const modalPanel = document.getElementById('modal-panel');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const modalOverlayBg = document.getElementById('modal-overlay-bg');
+            const menuModalLinks = document.querySelectorAll('.menu-link-modal');
+
+            // --- State ---
+            let currentCategory = 'Todos';
+            let currentSort = 'az';
+            let favorites = new Set();
+
+            // --- Render Functions ---
+            const createAppCard = (app) => {
+                const isFavorite = favorites.has(app.id);
+                const starSVG = isFavorite 
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-amber-400"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+
+                return `
+                <div class="group bg-white dark:bg-gray-800/50 p-3 rounded-xl shadow-sm hover:shadow-lg dark:hover:bg-gray-800 border border-transparent dark:hover:border-sky-500 transition-all duration-300 flex flex-col items-center text-center relative">
+                    <button class="favorite-btn absolute top-2 right-2 p-1.5 rounded-full bg-gray-100 dark:bg-gray-900/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors z-10" data-app-id="${app.id}" aria-label="Favoritar">
+                        ${starSVG}
+                    </button>
+                    <a href="${app.url}" target="_blank" rel="noopener noreferrer" class="w-full flex flex-col items-center">
+                        <img src="${app.iconUrl}" alt="${app.name}" class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl mb-3 transition-transform duration-300 group-hover:scale-110">
+                        <h3 class="font-bold text-sm text-gray-900 dark:text-white mb-1 truncate w-full">${app.name}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${app.description || ''}</p>
+                    </a>
+                </div>`;
+            };
+            
+            function renderApps(appsToRender) {
+                appsGrid.innerHTML = appsToRender.map(createAppCard).join('');
+                noResults.classList.toggle('hidden', appsToRender.length > 0);
+            }
+
+            function populateFilterDropdowns() {
+                const categories = ['Todos', ...new Set(appData.map(app => app.category))];
+                const dropdownContent = filterDropdown.querySelector('.py-1');
+                dropdownContent.innerHTML = categories.map(cat => `<a href="#" class="filter-option block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" data-category="${cat}">${cat}</a>`).join('');
+                sidePanelCategoriesContainer.innerHTML = categories.filter(c => c !== 'Todos').map(cat => `<a href="#" class="menu-category-link flex items-center gap-3 px-3 py-2 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-category="${cat}">${cat}</a>`).join('');
+            }
+
+            // --- Core Logic ---
+            function filterAndRender() {
+                const searchTerm = searchInput.value.toLowerCase();
+                let filteredApps = [...appData];
+
+                if (currentCategory !== 'Todos') {
+                    filteredApps = filteredApps.filter(app => app.category === currentCategory);
+                }
+                if (searchTerm) {
+                    filteredApps = filteredApps.filter(app => app.name.toLowerCase().includes(searchTerm) || (app.description && app.description.toLowerCase().includes(searchTerm)));
+                }
+                
+                filteredApps.sort((a, b) => {
+                    const isAFavorite = favorites.has(a.id);
+                    const isBFavorite = favorites.has(b.id);
+
+                    if (isAFavorite !== isBFavorite) return isBFavorite - isAFavorite;
+
+                    switch (currentSort) {
+                        case 'az': return a.name.localeCompare(b.name);
+                        case 'za': return b.name.localeCompare(a.name);
+                        case 'newest': return new Date(b.publishedDate) - new Date(a.publishedDate);
+                        case 'oldest': return new Date(a.publishedDate) - new Date(b.publishedDate);
+                        default: return 0;
+                    }
+                });
+
+                renderApps(filteredApps);
+            }
+            
+            // --- Favorites Logic ---
+            function loadFavorites() {
+                const storedFavorites = localStorage.getItem('ufcqx_favorites');
+                if (storedFavorites) favorites = new Set(JSON.parse(storedFavorites));
+            }
+
+            function saveFavorites() {
+                localStorage.setItem('ufcqx_favorites', JSON.stringify([...favorites]));
+            }
+
+            appsGrid.addEventListener('click', (e) => {
+                const favoriteBtn = e.target.closest('.favorite-btn');
+                if (favoriteBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const appId = parseInt(favoriteBtn.dataset.appId, 10);
+                    favorites.has(appId) ? favorites.delete(appId) : favorites.add(appId);
+                    saveFavorites();
+                    filterAndRender();
+                }
+            });
+
+            // --- Event Listeners ---
+            searchInput.addEventListener('input', filterAndRender);
+            
+            function setupDropdown(btn, dropdown) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeAllDropdowns(dropdown);
+                    dropdown.classList.toggle('hidden');
+                });
+            }
+            
+            function closeAllDropdowns(except = null) {
+                if (except !== filterDropdown) filterDropdown.classList.add('hidden');
+                if (except !== sortDropdown) sortDropdown.classList.add('hidden');
+            }
+            
+            window.addEventListener('click', () => closeAllDropdowns());
+            
+            setupDropdown(filterBtn, filterDropdown);
+            setupDropdown(sortBtn, sortDropdown);
+
+            function handleCategorySelection(category) {
+                currentCategory = category;
+                document.getElementById('filter-btn-text').textContent = currentCategory === 'Todos' ? 'Filtrar por Categoria' : currentCategory;
+                filterAndRender();
+            }
+
+            filterDropdown.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = e.target.closest('.filter-option');
+                if (target) handleCategorySelection(target.dataset.category);
+            });
+            
+            sidePanel.addEventListener('click', (e) => {
+                const target = e.target.closest('.menu-category-link');
+                if(target) {
+                    e.preventDefault();
+                    handleCategorySelection(target.dataset.category);
+                    closePanel();
+                }
+            });
+
+            sortDropdown.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = e.target.closest('.sort-option');
+                if(target) {
+                    currentSort = target.dataset.sort;
+                    document.getElementById('sort-btn-text').textContent = target.textContent;
+                    filterAndRender();
+                }
+            });
+            
+            // --- Panel & Modal Logic ---
+            function openPanel() { sidePanel.classList.remove('-translate-x-full'); overlay.classList.remove('opacity-0', 'pointer-events-none'); }
+            function closePanel() { sidePanel.classList.add('-translate-x-full'); overlay.classList.add('opacity-0', 'pointer-events-none'); }
+            openMenuBtn.addEventListener('click', openPanel);
+            closeMenuBtn.addEventListener('click', closePanel);
+            overlay.addEventListener('click', closePanel);
+            
+            function openModal(title, content) {
+                modalTitle.textContent = title;
+                modalContent.innerHTML = content;
+                modal.classList.remove('hidden');
+                setTimeout(() => modalPanel.classList.remove('opacity-0', 'scale-95'), 10);
+            }
+
+            function closeModal() {
+                modalPanel.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 200);
+            }
+            
+            modalCloseBtn.addEventListener('click', closeModal);
+            modalOverlayBg.addEventListener('click', closeModal);
+            
+            menuModalLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    closePanel();
+                    const target = e.currentTarget.dataset.modalTarget;
+                    if(target === 'sobre') {
+                        openModal('Sobre o UFC Quixadá Apps', '<p>Este é um hub centralizado de aplicativos e sistemas web desenvolvidos pela comunidade acadêmica da UFC Quixadá.</p><p class="mt-2">O objetivo é facilitar o acesso a ferramentas úteis para estudantes, professores e servidores.</p>');
+                    } else if (target === 'config') {
+                        openModal('Configurações', '<div class="flex items-center justify-between"><p>Modo Escuro</p><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" value="" class="sr-only peer" id="dark-mode-toggle" '+(document.documentElement.classList.contains('dark') ? 'checked' : '')+'><div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-sky-600"></div></label></div>');
+                        document.getElementById('dark-mode-toggle').addEventListener('change', () => {
+                           document.documentElement.classList.toggle('dark');
+                        });
+                    }
+                })
+            });
+
+            // --- Initial Load ---
+            loadFavorites();
+            populateFilterDropdowns();
+            filterAndRender();
+            document.getElementById('sort-btn-text').textContent = document.querySelector('.sort-option[data-sort="az"]').textContent;
+
+        });
+
+        // --- PWA Service Worker and Manifest ---
+        const manifestContent = {"name": "UFC Quixadá Apps", "short_name": "UFCQx Apps", "start_url": ".", "display": "standalone", "background_color": "#111827", "theme_color": "#111827", "description": "Hub de aplicativos web desenvolvidos no âmbito da UFC Quixadá.", "icons": [ {"src": "https://placehold.co/192x192/0284c7/FFFFFF?text=UFCQx", "sizes": "192x192", "type": "image/png"}, {"src": "https://placehold.co/512x512/0284c7/FFFFFF?text=UFCQx", "sizes": "512x512", "type": "image/png"} ]};
+        const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
+        document.getElementById('manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+        const swContent = `const CACHE_NAME = 'ufcqx-apps-v10'; const urlsToCache = ['/', 'index.html']; self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache))); }); self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); }); self.addEventListener('activate', e => { const cacheWhitelist = [CACHE_NAME]; e.waitUntil(caches.keys().then(names => Promise.all(names.map(name => { if (cacheWhitelist.indexOf(name) === -1) { return caches.delete(name); } })))); });`;
+        const swBlob = new Blob([swContent], { type: 'application/javascript' });
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register(URL.createObjectURL(swBlob)) });
+        }
+    </script>
+</body>
+</html>
