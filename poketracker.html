@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PokeTracker FireRed</title>
+    
+    <!-- Configurações PWA -->
+    <meta name="theme-color" content="#DC2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Acompanhe suas capturas no Pokémon FireRed">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .safe-top {
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* Estilos de Impressão A4 */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; padding: 0; }
+            @page { size: A4; margin: 1cm; }
+        }
+
+        .print-only { display: none; }
+
+        /* Animações */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-card {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- APP INTERFACE -->
+    <div id="app" class="no-print">
+        <!-- Header -->
+        <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm safe-top">
+            <div class="max-w-7xl mx-auto px-4 py-5">
+                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+                    <div class="flex items-center justify-between w-full md:w-auto">
+                        <div>
+                            <h1 class="text-2xl font-black tracking-tighter flex items-center gap-2 leading-none">
+                                <i data-lucide="trophy" class="w-6 h-6 text-red-600"></i>
+                                <span>POKÉ<span class="text-red-600">TRACKER</span></span>
+                            </h1>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 inline-block">FireRed Edition</span>
+                        </div>
+                        <div class="flex items-center gap-2 md:hidden">
+                            <button onclick="openReport()" class="p-3 bg-slate-100 rounded-2xl text-slate-600">
+                                <i data-lucide="printer" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <button onclick="openReport()" class="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors font-bold text-sm">
+                            <i data-lucide="printer" class="w-4 h-4"></i> Relatório
+                        </button>
+                        <div class="flex-1 md:flex-none text-right border-l border-slate-200 pl-4">
+                            <div id="stats-text" class="text-sm font-black text-slate-700 mb-1">0 / 151</div>
+                            <div class="w-32 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                <div id="progress-bar" class="h-full bg-red-600 transition-all duration-700 w-0"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                        <input type="text" id="search-input" oninput="renderGrid()" placeholder="Pesquisar Pokémon..." class="w-full pl-12 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all font-medium">
+                    </div>
+                    <select id="filter-select" onchange="renderGrid()" class="bg-white border border-slate-200 px-4 py-3 rounded-2xl text-sm font-black uppercase text-slate-700 focus:outline-none">
+                        <option value="all">TODOS</option>
+                        <option value="missing">FALTANDO</option>
+                        <option value="caught">CAPTURADOS</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+            <div id="pokemon-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                <!-- Cards serão injetados aqui -->
+            </div>
+            <div id="empty-state" class="hidden flex flex-col items-center justify-center py-32 text-slate-300">
+                <i data-lucide="ghost" class="w-20 h-20 mb-4 opacity-20"></i>
+                <p class="text-sm font-black uppercase tracking-widest opacity-40">Nenhum Pokémon encontrado</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE DETALHES -->
+    <div id="modal-overlay" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 no-print">
+        <div id="modal-content" class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden transform transition-all translate-y-full border-t-8 border-white">
+            <!-- Injetado via JS -->
+        </div>
+    </div>
+
+    <!-- RELATÓRIO A4 -->
+    <div id="report-container" class="print-only bg-white min-h-screen p-8 font-serif text-black">
+        <!-- Injetado via JS -->
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // --- DADOS ---
+        const POKEMON_DATA = [
+            { id: 1, name: "Bulbasaur", types: ["Grama", "Venenoso"], from: null, loc: "Pallet Town (Inicial)", lvls: "5", available: true },
+            { id: 2, name: "Ivysaur", types: ["Grama", "Venenoso"], from: "Bulbasaur (Nv 16)", loc: "Evolução", lvls: "16+", available: true },
+            { id: 3, name: "Venusaur", types: ["Grama", "Venenoso"], from: "Ivysaur (Nv 32)", loc: "Evolução", lvls: "32+", available: true },
+            { id: 4, name: "Charmander", types: ["Fogo"], from: null, loc: "Pallet Town (Inicial)", lvls: "5", available: true },
+            { id: 5, name: "Charmeleon", types: ["Fogo"], from: "Charmander (Nv 16)", loc: "Evolução", lvls: "16+", available: true },
+            { id: 6, name: "Charizard", types: ["Fogo", "Voador"], from: "Charmeleon (Nv 36)", loc: "Evolução", lvls: "36+", available: true },
+            { id: 7, name: "Squirtle", types: ["Água"], from: null, loc: "Pallet Town (Inicial)", lvls: "5", available: true },
+            { id: 8, name: "Wartortle", types: ["Água"], from: "Squirtle (Nv 16)", loc: "Evolução", lvls: "16+", available: true },
+            { id: 9, name: "Blastoise", types: ["Água"], from: "Wartortle (Nv 36)", loc: "Evolução", lvls: "36+", available: true },
+            { id: 10, name: "Caterpie", types: ["Inseto"], from: null, loc: "Viridian Forest, Rota 2", lvls: "3-5", available: true },
+            { id: 11, name: "Metapod", types: ["Inseto"], from: "Caterpie (Nv 7)", loc: "Viridian Forest", lvls: "4-6", available: true },
+            { id: 12, name: "Butterfree", types: ["Inseto", "Voador"], from: "Metapod (Nv 10)", loc: "Evolução", lvls: "10+", available: true },
+            { id: 13, name: "Weedle", types: ["Inseto", "Venenoso"], from: null, loc: "Viridian Forest, Rota 2", lvls: "3-5", available: true },
+            { id: 14, name: "Kakuna", types: ["Inseto", "Venenoso"], from: "Weedle (Nv 7)", loc: "Viridian Forest", lvls: "4-6", available: true },
+            { id: 15, name: "Beedrill", types: ["Inseto", "Venenoso"], from: "Kakuna (Nv 10)", loc: "Evolução", lvls: "10+", available: true },
+            { id: 16, name: "Pidgey", types: ["Normal", "Voador"], from: null, loc: "Rotas 1, 2, 5, 6, 7, 8", lvls: "2-12", available: true },
+            { id: 17, name: "Pidgeotto", types: ["Normal", "Voador"], from: "Pidgey (Nv 18)", loc: "Rotas 13, 14, 15", lvls: "25-30", available: true },
+            { id: 18, name: "Pidgeot", types: ["Normal", "Voador"], from: "Pidgeotto (Nv 36)", loc: "Evolução", lvls: "36+", available: true },
+            { id: 19, name: "Rattata", types: ["Normal"], from: null, loc: "Rotas 1, 2, 4, 9, 16, 22", lvls: "2-15", available: true },
+            { id: 20, name: "Raticate", types: ["Normal"], from: "Rattata (Nv 20)", loc: "Rotas 16, 17, 18", lvls: "20-25", available: true },
+            { id: 21, name: "Spearow", types: ["Normal", "Voador"], from: null, loc: "Rotas 3, 4, 9, 10, 22", lvls: "6-18", available: true },
+            { id: 22, name: "Fearow", types: ["Normal", "Voador"], from: "Spearow (Nv 20)", loc: "Rotas 17, 18, 23", lvls: "20-32", available: true },
+            { id: 23, name: "Ekans", types: ["Venenoso"], from: null, loc: "Rotas 4, 8, 9, 10, 11, 23", lvls: "6-28", available: true },
+            { id: 24, name: "Arbok", types: ["Venenoso"], from: "Ekans (Nv 22)", loc: "Rota 23, Victory Road", lvls: "30-45", available: true },
+            { id: 25, name: "Pikachu", types: ["Elétrico"], from: null, loc: "Viridian Forest, Power Plant", lvls: "3-35", available: true },
+            { id: 26, name: "Raichu", types: ["Elétrico"], from: "Pikachu (Pedra Trovão)", loc: "Evolução", lvls: "-", available: true },
+            { id: 27, name: "Sandshrew", types: ["Terra"], from: null, loc: "Exclusivo LeafGreen", lvls: "-", available: false },
+            { id: 28, name: "Sandslash", types: ["Terra"], from: "Sandshrew (Nv 22)", loc: "Exclusivo LeafGreen", lvls: "-", available: false },
+            { id: 29, name: "Nidoran♀", types: ["Venenoso"], from: null, loc: "Rota 3, Safari Zone", lvls: "6-30", available: true },
+            { id: 30, name: "Nidorina", types: ["Venenoso"], from: "Nidoran♀ (Nv 16)", loc: "Safari Zone", lvls: "25-35", available: true },
+            { id: 31, name: "Nidoqueen", types: ["Venenoso", "Terra"], from: "Nidorina (Pedra da Lua)", loc: "Evolução", lvls: "-", available: true },
+            { id: 32, name: "Nidoran♂", types: ["Venenoso"], from: null, loc: "Rota 3, Safari Zone", lvls: "6-30", available: true },
+            { id: 33, name: "Nidorino", types: ["Venenoso"], from: "Nidoran♂ (Nv 16)", loc: "Safari Zone", lvls: "25-35", available: true },
+            { id: 34, name: "Nidoking", types: ["Venenoso", "Terra"], from: "Nidorino (Pedra da Lua)", loc: "Evolução", lvls: "-", available: true },
+            { id: 35, name: "Clefairy", types: ["Normal"], from: null, loc: "Mt. Moon", lvls: "8-12", available: true },
+            { id: 36, name: "Clefable", types: ["Normal"], from: "Clefairy (Pedra da Lua)", loc: "Evolução", lvls: "-", available: true },
+            { id: 37, name: "Vulpix", types: ["Fogo"], from: null, loc: "Exclusivo LeafGreen", lvls: "-", available: false },
+            { id: 38, name: "Ninetales", types: ["Fogo"], from: "Vulpix (Pedra do Fogo)", loc: "Evolução", lvls: "-", available: false },
+            { id: 39, name: "Jigglypuff", types: ["Normal"], from: null, loc: "Rota 3", lvls: "3-7", available: true },
+            { id: 40, name: "Wigglytuff", types: ["Normal"], from: "Jigglypuff (Pedra da Lua)", loc: "Evolução", lvls: "-", available: true },
+            { id: 41, name: "Zubat", types: ["Venenoso", "Voador"], from: null, loc: "Mt. Moon, Rock Tunnel", lvls: "6-22", available: true },
+            { id: 42, name: "Golbat", types: ["Venenoso", "Voador"], from: "Zubat (Nv 22)", loc: "Victory Road", lvls: "30-52", available: true },
+            { id: 43, name: "Oddish", types: ["Grama", "Venenoso"], from: null, loc: "Rotas 5, 6, 7, 12, 13, 14", lvls: "12-25", available: true },
+            { id: 44, name: "Gloom", types: ["Grama", "Venenoso"], from: "Oddish (Nv 21)", loc: "Rotas 12-15", lvls: "22-30", available: true },
+            { id: 45, name: "Vileplume", types: ["Grama", "Venenoso"], from: "Gloom (Pedra da Folha)", loc: "Evolução", lvls: "-", available: true },
+            { id: 46, name: "Paras", types: ["Inseto", "Grama"], from: null, loc: "Mt. Moon, Safari Zone", lvls: "8-30", available: true },
+            { id: 47, name: "Parasect", types: ["Inseto", "Grama"], from: "Paras (Nv 24)", loc: "Cerulean Cave", lvls: "30-55", available: true },
+            { id: 48, name: "Venonat", types: ["Inseto", "Venenoso"], from: null, loc: "Safari, Rotas 12-15", lvls: "22-35", available: true },
+            { id: 49, name: "Venomoth", types: ["Inseto", "Venenoso"], from: "Venonat (Nv 31)", loc: "Safari Zone", lvls: "30-55", available: true },
+            { id: 50, name: "Diglett", types: ["Terra"], from: null, loc: "Diglett's Cave", lvls: "15-22", available: true },
+            { id: 51, name: "Dugtrio", types: ["Terra"], from: "Diglett (Nv 26)", loc: "Diglett's Cave", lvls: "29-31", available: true },
+            { id: 52, name: "Meowth", types: ["Normal"], from: null, loc: "Rotas 5, 6, 7, 8", lvls: "10-20", available: true },
+            { id: 53, name: "Persian", types: ["Normal"], from: "Meowth (Nv 28)", loc: "Evolução", lvls: "28+", available: true },
+            { id: 54, name: "Psyduck", types: ["Água"], from: null, loc: "Safari Zone (Surf)", lvls: "20-40", available: true },
+            { id: 55, name: "Golduck", types: ["Água"], from: "Psyduck (Nv 33)", loc: "Cerulean Cave (Surf)", lvls: "35-55", available: true },
+            { id: 56, name: "Mankey", types: ["Lutador"], from: null, loc: "Rotas 3, 4, 22", lvls: "2-15", available: true },
+            { id: 57, name: "Primeape", types: ["Lutador"], from: "Mankey (Nv 28)", loc: "Rota 23", lvls: "28-40", available: true },
+            { id: 58, name: "Growlithe", types: ["Fogo"], from: null, loc: "Pokémon Mansion", lvls: "15-35", available: true },
+            { id: 59, name: "Arcanine", types: ["Fogo"], from: "Growlithe (Pedra do Fogo)", loc: "Evolução", lvls: "-", available: true },
+            { id: 60, name: "Poliwag", types: ["Água"], from: null, loc: "Pesca", lvls: "5-25", available: true },
+            { id: 61, name: "Poliwhirl", types: ["Água"], from: "Poliwag (Nv 25)", loc: "Safari Zone", lvls: "20-35", available: true },
+            { id: 62, name: "Poliwrath", types: ["Água", "Lutador"], from: "Poliwhirl (Pedra da Água)", loc: "Evolução", lvls: "-", available: true },
+            { id: 63, name: "Abra", types: ["Psíquico"], from: null, loc: "Rotas 24, 25", lvls: "7-12", available: true },
+            { id: 64, name: "Kadabra", types: ["Psíquico"], from: "Abra (Nv 16)", loc: "Cerulean Cave", lvls: "38-50", available: true },
+            { id: 65, name: "Alakazam", types: ["Psíquico"], from: "Kadabra (Troca)", loc: "Exige Troca", lvls: "-", available: "trade" },
+            { id: 66, name: "Machop", types: ["Lutador"], from: null, loc: "Rock Tunnel", lvls: "15-25", available: true },
+            { id: 67, name: "Machoke", types: ["Lutador"], from: "Machop (Nv 28)", loc: "Victory Road", lvls: "35-45", available: true },
+            { id: 68, name: "Machamp", types: ["Lutador"], from: "Machoke (Troca)", loc: "Exige Troca", lvls: "-", available: "trade" },
+            { id: 69, name: "Bellsprout", types: ["Grama", "Venenoso"], from: null, loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 70, name: "Weepinbell", types: ["Grama", "Venenoso"], from: "Bellsprout (Nv 21)", loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 71, name: "Victreebel", types: ["Grama", "Venenoso"], from: "Weepinbell (Pedra da Folha)", loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 72, name: "Tentacool", types: ["Água", "Venenoso"], from: null, loc: "Mares (Surf)", lvls: "5-35", available: true },
+            { id: 73, name: "Tentacruel", types: ["Água", "Venenoso"], from: "Tentacool (Nv 30)", loc: "Mares (Surf)", lvls: "30-45", available: true },
+            { id: 74, name: "Geodude", types: ["Pedra", "Terra"], from: null, loc: "Mt. Moon, Rock Tunnel", lvls: "6-20", available: true },
+            { id: 75, name: "Graveler", types: ["Pedra", "Terra"], from: "Geodude (Nv 25)", loc: "Victory Road", lvls: "30-50", available: true },
+            { id: 76, name: "Golem", types: ["Pedra", "Terra"], from: "Graveler (Troca)", loc: "Exige Troca", lvls: "-", available: "trade" },
+            { id: 77, name: "Ponyta", types: ["Fogo"], from: null, loc: "Kindle Road", lvls: "30-35", available: true },
+            { id: 78, name: "Rapidash", types: ["Fogo"], from: "Ponyta (Nv 40)", loc: "Kindle Road", lvls: "38-42", available: true },
+            { id: 79, name: "Slowpoke", types: ["Água", "Psíquico"], from: null, loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 80, name: "Slowbro", types: ["Água", "Psíquico"], from: "Slowpoke (Nv 37)", loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 81, name: "Magnemite", types: ["Elétrico", "Aço"], from: null, loc: "Power Plant", lvls: "22-35", available: true },
+            { id: 82, name: "Magneton", types: ["Elétrico", "Aço"], from: "Magnemite (Nv 30)", loc: "Cerulean Cave", lvls: "30-50", available: true },
+            { id: 83, name: "Farfetch'd", types: ["Normal", "Voador"], from: null, loc: "Vermilion (Troca NPC)", lvls: "-", available: true },
+            { id: 84, name: "Doduo", types: ["Normal", "Voador"], from: null, loc: "Rotas 16, 17, 18", lvls: "18-28", available: true },
+            { id: 85, name: "Dodrio", types: ["Normal", "Voador"], from: "Doduo (Nv 31)", loc: "Safari Zone", lvls: "30-50", available: true },
+            { id: 86, name: "Seel", types: ["Água"], from: null, loc: "Seafoam Islands", lvls: "28-35", available: true },
+            { id: 87, name: "Dewgong", types: ["Água", "Gelo"], from: "Seel (Nv 34)", loc: "Seafoam Islands", lvls: "35-45", available: true },
+            { id: 88, name: "Grimer", types: ["Venenoso"], from: null, loc: "Pokémon Mansion", lvls: "25-35", available: true },
+            { id: 89, name: "Muk", types: ["Venenoso"], from: "Grimer (Nv 38)", loc: "Pokémon Mansion", lvls: "35-45", available: true },
+            { id: 90, name: "Shellder", types: ["Água"], from: null, loc: "Pesca", lvls: "15-35", available: true },
+            { id: 91, name: "Cloyster", types: ["Água", "Gelo"], from: "Shellder (Pedra da Água)", loc: "Evolução", lvls: "-", available: true },
+            { id: 92, name: "Gastly", types: ["Fantasma", "Venenoso"], from: null, loc: "Pokémon Tower", lvls: "15-25", available: true },
+            { id: 93, name: "Haunter", types: ["Fantasma", "Venenoso"], from: "Gastly (Nv 25)", loc: "Pokémon Tower", lvls: "20-30", available: true },
+            { id: 94, name: "Gengar", types: ["Fantasma", "Venenoso"], from: "Haunter (Troca)", loc: "Exige Troca", lvls: "-", available: "trade" },
+            { id: 95, name: "Onix", types: ["Pedra", "Terra"], from: null, loc: "Rock Tunnel", lvls: "30-45", available: true },
+            { id: 96, name: "Drowzee", types: ["Psíquico"], from: null, loc: "Rota 11", lvls: "11-15", available: true },
+            { id: 97, name: "Hypno", types: ["Psíquico"], from: "Drowzee (Nv 26)", loc: "Berry Forest", lvls: "30-40", available: true },
+            { id: 98, name: "Krabby", types: ["Água"], from: null, loc: "Pesca", lvls: "10-25", available: true },
+            { id: 99, name: "Kingler", types: ["Água"], from: "Krabby (Nv 28)", loc: "Seafoam Islands", lvls: "25-40", available: true },
+            { id: 100, name: "Voltorb", types: ["Elétrico"], from: null, loc: "Power Plant", lvls: "14-30", available: true },
+            { id: 101, name: "Electrode", types: ["Elétrico"], from: "Voltorb (Nv 30)", loc: "Cerulean Cave", lvls: "30-50", available: true },
+            { id: 102, name: "Exeggcute", types: ["Grama", "Psíquico"], from: null, loc: "Safari Zone", lvls: "22-28", available: true },
+            { id: 103, name: "Exeggutor", types: ["Grama", "Psíquico"], from: "Exeggcute (Pedra da Folha)", loc: "Evolução", lvls: "-", available: true },
+            { id: 104, name: "Cubone", types: ["Terra"], from: null, loc: "Pokémon Tower", lvls: "15-22", available: true },
+            { id: 105, name: "Marowak", types: ["Terra"], from: "Cubone (Nv 28)", loc: "Victory Road", lvls: "35-55", available: true },
+            { id: 106, name: "Hitmonlee", types: ["Lutador"], from: null, loc: "Saffron Dojo", lvls: "25", available: true },
+            { id: 107, name: "Hitmonchan", types: ["Lutador"], from: null, loc: "Saffron Dojo", lvls: "25", available: true },
+            { id: 108, name: "Lickitung", types: ["Normal"], from: null, loc: "Rota 18 (Troca NPC)", lvls: "-", available: true },
+            { id: 109, name: "Koffing", types: ["Venenoso"], from: null, loc: "Pokémon Mansion", lvls: "28-35", available: true },
+            { id: 110, name: "Weezing", types: ["Venenoso"], from: "Koffing (Nv 35)", loc: "Pokémon Mansion", lvls: "35-45", available: true },
+            { id: 111, name: "Rhyhorn", types: ["Terra", "Pedra"], from: null, loc: "Safari Zone", lvls: "25-30", available: true },
+            { id: 112, name: "Rhydon", types: ["Terra", "Pedra"], from: "Rhyhorn (Nv 42)", loc: "Cerulean Cave", lvls: "45-60", available: true },
+            { id: 113, name: "Chansey", types: ["Normal"], from: null, loc: "Safari Zone", lvls: "25", available: true },
+            { id: 114, name: "Tangela", types: ["Grama"], from: null, loc: "Rota 21", lvls: "20-30", available: true },
+            { id: 115, name: "Kangaskhan", types: ["Normal"], from: null, loc: "Safari Zone", lvls: "25-30", available: true },
+            { id: 116, name: "Horsea", types: ["Água"], from: null, loc: "Pesca", lvls: "15-30", available: true },
+            { id: 117, name: "Seadra", types: ["Água"], from: "Horsea (Nv 32)", loc: "Evolução", lvls: "32+", available: true },
+            { id: 118, name: "Goldeen", types: ["Água"], from: null, loc: "Pesca", lvls: "10-25", available: true },
+            { id: 119, name: "Seaking", types: ["Água"], from: "Goldeen (Nv 33)", loc: "Safari Zone", lvls: "25-40", available: true },
+            { id: 120, name: "Staryu", types: ["Água"], from: null, loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 121, name: "Starmie", types: ["Água", "Psíquico"], from: "Staryu (Pedra da Água)", loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 122, name: "Mr. Mime", types: ["Psíquico"], from: null, loc: "Rota 2 (Troca NPC)", lvls: "-", available: true },
+            { id: 123, name: "Scyther", types: ["Inseto", "Voador"], from: null, loc: "Safari Zone", lvls: "20-25", available: true },
+            { id: 124, name: "Jynx", types: ["Gelo", "Psíquico"], from: null, loc: "Cerulean (Troca NPC)", lvls: "-", available: true },
+            { id: 125, name: "Electabuzz", types: ["Elétrico"], from: null, loc: "Power Plant", lvls: "30-35", available: true },
+            { id: 126, name: "Magmar", types: ["Fogo"], from: null, loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 127, name: "Pinsir", types: ["Inseto"], from: null, loc: "Exclusivo LG", lvls: "-", available: false },
+            { id: 128, name: "Tauros", types: ["Normal"], from: null, loc: "Safari Zone", lvls: "25", available: true },
+            { id: 129, name: "Magikarp", types: ["Água"], from: null, loc: "Qualquer água", lvls: "5", available: true },
+            { id: 130, name: "Gyarados", types: ["Água", "Voador"], from: "Magikarp (Nv 20)", loc: "Fuchsia", lvls: "15-35", available: true },
+            { id: 131, name: "Lapras", types: ["Água", "Gelo"], from: null, loc: "Silph Co. (Presente)", lvls: "25", available: true },
+            { id: 132, name: "Ditto", types: ["Normal"], from: null, loc: "Rota 13-15", lvls: "22-30", available: true },
+            { id: 133, name: "Eevee", types: ["Normal"], from: null, loc: "Celadon (Presente)", lvls: "25", available: true },
+            { id: 134, name: "Vaporeon", types: ["Água"], from: "Eevee (Pedra da Água)", loc: "Evolução", lvls: "-", available: true },
+            { id: 135, name: "Jolteon", types: ["Elétrico"], from: "Eevee (Pedra Trovão)", loc: "Evolução", lvls: "-", available: true },
+            { id: 136, name: "Flareon", types: ["Fogo"], from: "Eevee (Pedra do Fogo)", loc: "Evolução", lvls: "-", available: true },
+            { id: 137, name: "Porygon", types: ["Normal"], from: null, loc: "Game Corner", lvls: "18-26", available: true },
+            { id: 138, name: "Omanyte", types: ["Pedra", "Água"], from: null, loc: "Fóssil Helix", lvls: "5", available: true },
+            { id: 139, name: "Omastar", types: ["Pedra", "Água"], from: "Omanyte (Nv 40)", loc: "Evolução", lvls: "40+", available: true },
+            { id: 140, name: "Kabuto", types: ["Pedra", "Água"], from: null, loc: "Fóssil Dome", lvls: "5", available: true },
+            { id: 141, name: "Kabutops", types: ["Pedra", "Água"], from: "Kabuto (Nv 40)", loc: "Evolução", lvls: "40+", available: true },
+            { id: 142, name: "Aerodactyl", types: ["Pedra", "Voador"], from: null, loc: "Old Amber (Pewter)", lvls: "5", available: true },
+            { id: 143, name: "Snorlax", types: ["Normal"], from: null, loc: "Rotas 12 & 16", lvls: "30", available: true },
+            { id: 144, name: "Articuno", types: ["Gelo", "Voador"], from: null, loc: "Seafoam Islands", lvls: "50", available: true },
+            { id: 145, name: "Zapdos", types: ["Elétrico", "Voador"], from: null, loc: "Power Plant", lvls: "50", available: true },
+            { id: 146, name: "Moltres", types: ["Fogo", "Voador"], from: null, loc: "Mt. Ember", lvls: "50", available: true },
+            { id: 147, name: "Dratini", types: ["Dragão"], from: null, loc: "Safari Zone", lvls: "15-25", available: true },
+            { id: 148, name: "Dragonair", types: ["Dragão"], from: "Dratini (Nv 30)", loc: "Safari Zone", lvls: "30-55", available: true },
+            { id: 149, name: "Dragonite", types: ["Dragão", "Voador"], from: "Dragonair (Nv 55)", loc: "Evolução", lvls: "55+", available: true },
+            { id: 150, name: "Mewtwo", types: ["Psíquico"], from: null, loc: "Cerulean Cave", lvls: "70", available: true },
+            { id: 151, name: "Mew", types: ["Psíquico"], from: null, loc: "Inatingível", lvls: "5", available: false },
+        ];
+
+        const TYPE_COLORS = {
+            "Grama": 'bg-emerald-500', "Fogo": 'bg-rose-500', "Água": 'bg-sky-500', "Inseto": 'bg-lime-500',
+            "Normal": 'bg-slate-400', "Venenoso": 'bg-purple-500', "Elétrico": 'bg-amber-400', "Terra": 'bg-orange-600',
+            "Fada": 'bg-pink-300', "Lutador": 'bg-orange-800', "Psíquico": 'bg-pink-500', "Pedra": 'bg-yellow-700',
+            "Aço": 'bg-slate-500', "Fantasma": 'bg-indigo-600', "Gelo": 'bg-cyan-400', "Dragão": 'bg-indigo-500',
+            "Voador": 'bg-blue-300'
+        };
+
+        // --- ESTADO ---
+        let caughtIds = JSON.parse(localStorage.getItem('fireRedTracker_vFinal_html') || '[]');
+
+        // --- FUNÇÕES CORE ---
+        function save() {
+            localStorage.setItem('fireRedTracker_vFinal_html', JSON.stringify(caughtIds));
+            updateStats();
+        }
+
+        function updateStats() {
+            const count = caughtIds.length;
+            const perc = Math.round((count / 151) * 100);
+            document.getElementById('stats-text').innerText = `${count} / 151 (${perc}%)`;
+            document.getElementById('progress-bar').style.width = `${perc}%`;
+        }
+
+        function toggleCaught(id) {
+            const index = caughtIds.indexOf(id);
+            if (index > -1) {
+                caughtIds.splice(index, 1);
+            } else {
+                caughtIds.push(id);
+            }
+            save();
+            renderGrid();
+        }
+
+        // --- RENDERIZAÇÃO ---
+        function renderGrid() {
+            const grid = document.getElementById('pokemon-grid');
+            const empty = document.getElementById('empty-state');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const filter = document.getElementById('filter-select').value;
+
+            const filtered = POKEMON_DATA.filter(p => {
+                const matchName = p.name.toLowerCase().includes(search) || p.id.toString() === search;
+                const isCaught = caughtIds.includes(p.id);
+                if (filter === 'caught') return matchName && isCaught;
+                if (filter === 'missing') return matchName && !isCaught;
+                return matchName;
+            });
+
+            grid.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                filtered.forEach(p => {
+                    const isCaught = caughtIds.includes(p.id);
+                    const isWarning = p.available === false || p.available === "trade";
+                    
+                    const card = document.createElement('div');
+                    card.className = `animate-card relative active:scale-95 transition-transform duration-200 h-full`;
+                    card.innerHTML = `
+                        <div onclick="toggleCaught(${p.id})" class="flex flex-col items-center p-6 h-full rounded-[2.5rem] border-2 transition-all duration-300 cursor-pointer group shadow-sm ${isCaught ? 'bg-white border-green-500 shadow-xl ring-8 ring-green-500/5' : 'bg-white border-slate-100 opacity-60 grayscale'}">
+                            <div class="absolute top-5 left-6 text-[10px] font-black text-slate-200 group-hover:text-slate-300 transition-colors uppercase tracking-widest">#${p.id.toString().padStart(3, '0')}</div>
+                            
+                            ${isWarning ? `<div class="absolute top-5 right-14 text-red-500 animate-pulse"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>` : ''}
+                            
+                            <div class="w-32 h-32 md:w-36 md:h-36 my-4 transition-all duration-500 ease-out ${isCaught ? 'scale-110 drop-shadow-2xl' : 'scale-90 opacity-40'}">
+                                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png" alt="${p.name}" class="w-full h-full object-contain" loading="lazy">
+                            </div>
+
+                            <h3 class="text-base md:text-lg font-black uppercase tracking-tight text-center transition-colors leading-none ${isCaught ? 'text-slate-900' : 'text-slate-400'}">${p.name}</h3>
+                            <div class="mt-2 text-[10px] font-bold text-center leading-tight transition-colors min-h-[20px] ${isCaught ? 'text-green-600' : 'text-slate-300'}">
+                                ${p.from ? `<span class="opacity-80 uppercase">${p.from}</span>` : `<span class="opacity-20 uppercase tracking-[0.3em]">Base</span>`}
+                            </div>
+                        </div>
+                        <button onclick="openModal(${p.id})" class="absolute top-4 right-4 p-2.5 rounded-full transition-all active:scale-90 z-10 ${isCaught ? 'text-green-500 hover:bg-green-50' : 'text-slate-200 hover:bg-slate-50'}">
+                            <i data-lucide="more-horizontal" class="w-7 h-7 md:w-8 md:h-8"></i>
+                        </button>
+                        ${isCaught ? `<div class="absolute -top-1 -left-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white shadow-lg pointer-events-none"></div>` : ''}
+                    `;
+                    grid.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+        }
+
+        // --- MODAL ---
+        function openModal(id) {
+            const p = POKEMON_DATA.find(x => x.id === id);
+            const overlay = document.getElementById('modal-overlay');
+            const content = document.getElementById('modal-content');
+
+            content.innerHTML = `
+                <div class="p-10 text-white relative flex flex-col items-center overflow-hidden ${TYPE_COLORS[p.types[0]]}">
+                    <div class="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+                    <button onclick="closeModal()" class="absolute top-8 right-8 p-3 bg-white/20 hover:bg-white/30 rounded-full transition-colors active:scale-90 z-20"><i data-lucide="x" class="w-7 h-7"></i></button>
+                    <div class="w-56 h-56 md:w-72 md:h-72 mb-8 drop-shadow-[0_25px_30px_rgba(0,0,0,0.3)] z-10"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png" class="w-full h-full object-contain"></div>
+                    <div class="text-center z-10">
+                        <span class="text-xs md:text-sm font-black opacity-60 uppercase tracking-[0.4em] mb-2 block">DEX Nº ${p.id.toString().padStart(3, '0')}</span>
+                        <h2 class="text-5xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-5">${p.name}</h2>
+                        <div class="flex justify-center gap-3">
+                            ${p.types.map(t => `<span class="px-7 py-2 md:px-10 md:py-3 bg-white/30 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest border border-white/20 shadow-sm backdrop-blur-sm">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="p-10 md:p-14 space-y-5 md:space-y-8">
+                    ${p.available === false || p.available === 'trade' ? `
+                        <div class="flex items-center gap-4 p-5 bg-red-50 border border-red-100 rounded-[2rem] text-red-600 shadow-sm">
+                            <i data-lucide="alert-triangle" class="w-8 h-8 flex-shrink-0"></i>
+                            <p class="text-sm md:text-base font-black uppercase leading-tight">${p.available === false ? "Não disponível no FireRed. Exige troca com LeafGreen." : "Este Pokémon exige TROCA para evoluir."}</p>
+                        </div>
+                    ` : ''}
+                    <div class="flex items-center gap-6 p-7 md:p-9 bg-slate-50 rounded-[2.5rem] border border-slate-100 group shadow-sm">
+                        <div class="p-4 md:p-6 bg-white shadow-md rounded-2xl text-red-500"><i data-lucide="map-pin" class="w-8 h-8 md:w-10 md:h-10"></i></div>
+                        <div>
+                            <h4 class="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Onde Encontrar</h4>
+                            <p class="text-xl md:text-2xl font-bold text-slate-800 leading-tight">${p.loc}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-5 md:gap-8">
+                        <div class="flex flex-col gap-3 p-6 md:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <div class="w-12 h-12 md:w-16 md:h-16 bg-white shadow-sm rounded-2xl flex items-center justify-center text-blue-500"><i data-lucide="gauge" class="w-7 h-7 md:w-9 md:h-9"></i></div>
+                            <h4 class="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Nível</h4>
+                            <p class="text-lg md:text-xl font-bold text-slate-800">Nv. ${p.lvls}</p>
+                        </div>
+                        <div class="flex flex-col gap-3 p-6 md:p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <div class="w-12 h-12 md:w-16 md:h-16 bg-white shadow-sm rounded-2xl flex items-center justify-center text-amber-500"><i data-lucide="chevron-right" class="w-7 h-7 md:w-9 md:h-9"></i></div>
+                            <h4 class="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Origem</h4>
+                            <p class="text-lg md:text-xl font-bold text-slate-800 truncate">${p.from ? "Evolução" : "Base"}</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="w-full py-7 md:py-9 bg-slate-900 text-white rounded-[2.5rem] font-black text-sm md:text-base uppercase tracking-[0.4em] active:scale-95 transition-all shadow-2xl">Voltar à Dex</button>
+                </div>
+            `;
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('translate-y-full'), 10);
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            const content = document.getElementById('modal-content');
+            content.classList.add('translate-y-full');
+            setTimeout(() => document.getElementById('modal-overlay').classList.add('hidden'), 300);
+        }
+
+        // --- RELATÓRIO ---
+        function openReport() {
+            const container = document.getElementById('report-container');
+            const count = caughtIds.length;
+            const perc = Math.round((count / 151) * 100);
+            
+            let html = `
+                <div class="flex justify-between items-end border-b-4 border-black pb-4 mb-8">
+                    <div>
+                        <h1 class="text-4xl font-black uppercase tracking-tighter">Relatório Pokédex</h1>
+                        <p class="text-sm opacity-60">Pokémon FireRed Edition • Guia de Capturas</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-black">${count} / 151</p>
+                        <p class="text-xs font-bold uppercase tracking-widest">Progresso: ${perc}%</p>
+                    </div>
+                </div>
+                <table class="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                        <tr class="border-b-2 border-black bg-slate-50">
+                            <th class="py-2 px-2">Nº</th>
+                            <th class="py-2 px-2">Estado</th>
+                            <th class="py-2 px-2">Pokémon</th>
+                            <th class="py-2 px-2">Evolui de</th>
+                            <th class="py-2 px-2">Onde Encontrar</th>
+                            <th class="py-2 px-2">Obs.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${POKEMON_DATA.map(p => `
+                            <tr class="border-b border-slate-300 ${!p.available ? 'bg-red-50' : ''}">
+                                <td class="py-2 px-2 font-mono">#${p.id.toString().padStart(3, '0')}</td>
+                                <td class="py-2 px-2">
+                                    <div class="w-4 h-4 border border-black inline-block align-middle mr-1 ${caughtIds.includes(p.id) ? 'bg-black' : ''}"></div>
+                                    ${caughtIds.includes(p.id) ? 'PEGO' : 'FALTA'}
+                                </td>
+                                <td class="py-2 px-2 font-black uppercase">${p.name}</td>
+                                <td class="py-2 px-2 italic">${p.from || '-'}</td>
+                                <td class="py-2 px-2">${p.loc}</td>
+                                <td class="py-2 px-2 font-bold">${p.available === false ? 'INDISP.' : p.available === 'trade' ? 'TROCA' : 'NATIVO'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="mt-8 text-center text-[8px] opacity-40 italic">Gerado em ${new Date().toLocaleDateString('pt-BR')} • PokeTracker v1.0</div>
+            `;
+            
+            container.innerHTML = html;
+            window.print();
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            updateStats();
+            renderGrid();
+        }
+
+        // SW Simulation para PWA
+        if ('serviceWorker' in navigator) {
+            const sw = `self.addEventListener('fetch', function(event) { event.respondWith(fetch(event.request)); });`;
+            const blob = new Blob([sw], { type: 'text/javascript' });
+            navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+        }
+    </script>
+</body>
+</html>
